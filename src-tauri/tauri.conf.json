@@ -12,7 +12,6 @@
   "app": {
     "windows": [
       {
-        "label": "Assist",
         "title": "Assist",
         "width": 1400,
         "height": 1000,
