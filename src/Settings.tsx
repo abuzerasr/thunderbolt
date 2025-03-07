@@ -1,18 +1,10 @@
-import { ArrowLeft } from 'lucide-solid'
-import { createSignal } from 'solid-js'
-import { Button } from './components/button'
-import { Select } from './components/select'
-import { Sidebar } from './components/sidebar'
 import { A } from '@solidjs/router'
+import { ArrowLeft } from 'lucide-solid'
+import { JSXElement } from 'solid-js'
+import { Button } from './components/button'
+import { Sidebar } from './components/sidebar'
 
-export default function Settings() {
-  const [selectedValue, setSelectedValue] = createSignal<string | undefined>(undefined)
-
-  const handleChange = (value: string) => {
-    console.log('value', value)
-    setSelectedValue(value)
-  }
-
+export default function Settings({ children }: { children?: JSXElement }) {
   return (
     <>
       <Sidebar>
@@ -21,26 +13,7 @@ export default function Settings() {
           Home
         </Button>
       </Sidebar>
-      <Select
-        value={selectedValue()}
-        onChange={setSelectedValue}
-        variant="outline"
-        options={[
-          { value: 'react', label: 'React' },
-          { value: 'solid', label: 'Solid' },
-          { value: 'vue', label: 'Vue' },
-        ]}
-      />
-      <Select
-        value={selectedValue()}
-        onChange={setSelectedValue}
-        variant="default"
-        options={[
-          { value: 'react', label: 'React' },
-          { value: 'solid', label: 'Solid' },
-          { value: 'vue', label: 'Vue' },
-        ]}
-      />
+      <div class="flex flex-col gap-4 p-4 w-full">{children}</div>
     </>
   )
 }

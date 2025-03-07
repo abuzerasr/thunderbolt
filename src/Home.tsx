@@ -17,7 +17,7 @@ export default function Home() {
   return (
     <>
       <Sidebar>
-        <Button as={A} href="/settings" variant="outline">
+        <Button as={A} href="/settings/accounts" variant="outline">
           <Settings class="size-4" />
           Settings
         </Button>
