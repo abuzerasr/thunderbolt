@@ -5,10 +5,8 @@ use chrono::{DateTime, Utc};
 use html2text::from_read;
 use mailparse::MailHeaderMap;
 use regex::Regex;
-use uuid::Uuid;
 
 pub struct Message {
-    pub id: Uuid,
     pub date: DateTime<Utc>,
     pub subject: String,
     pub body: String,
@@ -63,8 +61,7 @@ pub fn parse_email_to_message(mail_body: &str, _id: Option<i32>) -> Result<Messa
     let snippet = clean_text.chars().take(100).collect::<String>();
 
     // Create the message struct
-    let message = Message {
-        id: uuid::Uuid::new_v4(),
+    let message: Message = Message {
         date,
         subject,
         body,
