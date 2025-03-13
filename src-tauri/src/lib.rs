@@ -1,5 +1,6 @@
 pub mod embedding;
 pub mod imap_client;
+pub mod settings;
 
 // For mobile
 // #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -1,19 +1,18 @@
 use std::env;
 
+use crate::settings::Settings;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use html2text::from_read;
 use mailparse::MailHeaderMap;
 use regex::Regex;
-
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     pub date: DateTime<Utc>,
     pub subject: String,
     pub body: String,
-    pub snippet: String,
     pub clean_text: String,
-    pub clean_text_tokens_in: i32,
-    pub clean_text_tokens_out: i32,
 }
 
 fn remove_urls(input: &str) -> String {
@@ -57,18 +56,12 @@ pub fn parse_email_to_message(mail_body: &str, _id: Option<i32>) -> Result<Messa
 
     let clean_text = remove_urls(&clean_text);
 
-    // Create a snippet (first 100 chars of body)
-    let snippet = clean_text.chars().take(100).collect::<String>();
-
     // Create the message struct
     let message: Message = Message {
         date,
         subject,
         body,
-        snippet,
         clean_text,
-        clean_text_tokens_in: 0,  // Placeholder for token count
-        clean_text_tokens_out: 0, // Placeholder for token count
     };
 
     Ok(message)
@@ -110,24 +103,23 @@ fn dump(pfx: &str, pm: &mailparse::ParsedMail) {
     }
 }
 
-pub fn fetch_inbox_top(count: Option<usize>) -> anyhow::Result<Vec<Message>> {
-    // Try to load from .env if present, continue if not found
-    if let Ok(path) = env::var("CARGO_MANIFEST_DIR") {
-        let env_path = std::path::Path::new(&path).join(".env");
-        if env_path.exists() {
-            dotenv::from_path(env_path).ok();
-        }
-    }
+pub fn fetch_inbox_top(settings: &Settings, count: Option<usize>) -> anyhow::Result<Vec<Message>> {
+    let settings = settings
+        .account
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Account settings not found"))?;
 
-    let domain = env::var("IMAP_DOMAIN").expect("IMAP_DOMAIN environment variable must be set");
-    let username =
-        env::var("IMAP_USERNAME").expect("IMAP_USERNAME environment variable must be set");
-    let password =
-        env::var("IMAP_PASSWORD").expect("IMAP_PASSWORD environment variable must be set");
-    let port = env::var("IMAP_PORT")
-        .expect("IMAP_PORT environment variable must be set")
-        .parse::<u16>()
-        .expect("IMAP_PORT must be a valid port number");
+    let domain = &settings.hostname;
+    let username = &settings.username;
+    let password = &settings.password;
+    let port = settings.port;
+
+    // Print all settings for debugging
+    println!("IMAP Settings:");
+    println!("  Domain: {}", domain);
+    println!("  Username: {}", username);
+    println!("  Password: {}", password);
+    println!("  Port: {}", port);
 
     let client = imap::ClientBuilder::new(&domain, port)
         // .mode(imap::ConnectionMode::Tls)
