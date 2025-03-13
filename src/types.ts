@@ -1,6 +1,8 @@
-import { ReasoningUIPart, SourceUIPart, TextUIPart, ToolInvocationUIPart } from '@ai-sdk/ui-utils'
+import { Message, ReasoningUIPart, SourceUIPart, TextUIPart, ToolInvocationUIPart } from '@ai-sdk/ui-utils'
+import { InferSelectModel } from 'drizzle-orm'
 import { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
 import * as schema from './db/schema'
+import { chatMessagesTable, chatThreadsTable, settingsTable } from './db/schema'
 import Database from './lib/libsql'
 import { Settings as SettingsType } from './types'
 
@@ -11,7 +13,9 @@ export type InitData = {
 }
 
 export type ChatMessagePart = TextUIPart | ReasoningUIPart | ToolInvocationUIPart | SourceUIPart
-export type ChatMessageRole = 'system' | 'user' | 'assistant' | 'data'
+export type ChatMessageRole = 'data' | 'system' | 'user' | 'assistant'
+
+export type SaveMessagesFunction = ({ id, messages }: { id: string; messages: Message[] }) => Promise<void>
 
 export type AccountsSettings = {
   hostname: string
@@ -33,3 +37,7 @@ export type DrizzleContextType = {
   db: SqliteRemoteDatabase<typeof schema>
   sqlite: Database
 }
+
+export type ChatMessage = InferSelectModel<typeof chatMessagesTable>
+export type ChatThread = InferSelectModel<typeof chatThreadsTable>
+export type Setting = InferSelectModel<typeof settingsTable>

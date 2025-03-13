@@ -1,8 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { invoke } from '@tauri-apps/api/core'
-import { LanguageModelResponseMetadata, Message, streamText, tool, ToolInvocation } from 'ai'
-import { z } from 'zod'
-
+import { appendResponseMessages, Message, streamText, ToolInvocation } from 'ai'
+import { v7 as uuidv7 } from 'uuid'
+import { toolset } from './ai-tools'
+import { SaveMessagesFunction } from '@/types'
 // @todo replace with the actual message type
 export type EmailMessage = {
   id: string
@@ -67,19 +67,13 @@ export const ollama = createOpenAI({
   apiKey: 'ollama',
 })
 
-export const aiFetchStreamingResponse = async ({
-  apiKey,
-  init,
-  onFinish,
-}: {
+type AiFetchStreamingResponseOptions = {
   apiKey: string
   init: RequestInit
-  onFinish: (
-    response: LanguageModelResponseMetadata & {
-      readonly messages: Array<Message>
-    }
-  ) => void
-}) => {
+  saveMessages: SaveMessagesFunction
+}
+
+export const aiFetchStreamingResponse = async ({ apiKey, init, saveMessages }: AiFetchStreamingResponseOptions) => {
   // _requestInfoOrUrl is not used, but is required by fetch. The OpenAI wrapper handles the URL For us.
 
   if (!apiKey) {
@@ -93,7 +87,14 @@ export const aiFetchStreamingResponse = async ({
   const options = init as RequestInit & { body: string }
   const body = JSON.parse(options.body)
 
-  const { messages } = body as { messages: Message[] }
+  const { messages, id } = body as { messages: Message[]; id: string }
+
+  // If we enable experimental_prepareRequestBody in useChat:
+  // const { message } = body as { message: Message }
+  // const messages = appendClientMessage({
+  //   messages: previousMessages,
+  //   message,
+  // });
 
   const processedMessages = messages.map((message) => ({
     ...message,
@@ -123,43 +124,21 @@ export const aiFetchStreamingResponse = async ({
     system: p2,
     messages: processedMessages,
     toolCallStreaming: true, // Causes issues because this results in incomplete result objects getting passed to React components. Experimentation to block rendering until the full objects are available is needed.
-    tools: {
-      search: tool({
-        description: "A tool for searching the user's inbox.",
-        parameters: z.object({
-          query: z.string().describe("The query to search the user's inbox with."),
-          originalUserMessage: z.string().describe('The original user message that triggered this tool call.'),
+    tools: toolset,
+
+    // if we want to generate a custom id
+    experimental_generateMessageId: uuidv7,
+
+    async onFinish({ response }) {
+      await saveMessages({
+        id,
+        messages: appendResponseMessages({
+          messages,
+          responseMessages: response.messages,
         }),
-        execute: async () => {
-          const messages = await invoke<EmailMessage[]>('fetch_inbox_top', { count: 50 })
-          console.log('messages', messages)
-          return messages.map(
-            (message) => `
-            ID: ${message.id}
-            Type: Message
-            Subject: ${message.subject}
-            Snippet: ${message.snippet}
-            Body: ${message.clean_text}
-          `
-          )
-        },
-      }),
-      answer: tool({
-        description: 'Provide your final response to the user.',
-        parameters: z.object({
-          text: z.string().describe('The verbal response to the user. Do not list anything here.'),
-          results: z.array(z.string()),
-        }),
-        // Important: Do NOT have an execute function otherwise it will call this tool multiple times.
-        // But: it is helpful for debugging :)
-        // execute: async ({ text, results }) => {
-        //   console.log('answer', text, results)
-        // },
-      }),
+      })
     },
-    onFinish: async ({ response }) => {
-      onFinish?.(response)
-    },
+
     toolChoice: 'required',
   })
 

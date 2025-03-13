@@ -1,11 +1,11 @@
 import { useDrizzle } from '@/db/provider'
 import { chatMessagesTable } from '@/db/schema'
+import { convertDbChatMessageToMessage, convertMessageToDbChatMessage } from '@/lib/utils'
 import { useSettings } from '@/settings/provider'
-import { ChatMessagePart } from '@/types'
+import { SaveMessagesFunction } from '@/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Message } from 'ai'
 import { eq } from 'drizzle-orm'
-import { useEffect } from 'react'
 import { useParams } from 'react-router'
 import Chat from './chat'
 
@@ -15,46 +15,26 @@ export default function ChatDetailPage() {
   const settingsContext = useSettings()
   const queryClient = useQueryClient()
 
-  // Use React Query to fetch messages
   const {
     data: messages,
     isLoading,
     isError,
-  } = useQuery({
+  } = useQuery<Message[], Error>({
     queryKey: ['chatMessages', params.chatThreadId],
     queryFn: async () => {
-      if (!params.chatThreadId) return null
-
-      try {
-        const chatMessages = await db.select().from(chatMessagesTable).where(eq(chatMessagesTable.chat_thread_id, params.chatThreadId)).orderBy(chatMessagesTable.id)
-
-        return chatMessages.map((message) => ({
-          id: message.id,
-          parts: message.parts,
-          role: message.role,
-          content: message.content,
-          createdAt: new Date(message.id),
-        }))
-      } catch (error) {
-        console.error('Error fetching messages:', error)
-        throw error
-      }
+      const chatMessages = await db.select().from(chatMessagesTable).where(eq(chatMessagesTable.chat_thread_id, params.chatThreadId!)).orderBy(chatMessagesTable.id)
+      return chatMessages.map(convertDbChatMessageToMessage)
     },
     enabled: !!params.chatThreadId,
+    initialData: [],
   })
 
-  const addMessageMutation = useMutation({
-    mutationFn: async (lastMessage: Message) => {
-      if (!params.chatThreadId) throw new Error('No chat thread ID')
+  const addMessagesMutation = useMutation({
+    mutationFn: async (messages: Message[]) => {
+      const dbChatMessages = messages.map((message) => convertMessageToDbChatMessage(message, params.chatThreadId!))
 
-      return await db.insert(chatMessagesTable).values({
-        id: lastMessage.id,
-        parts: lastMessage.parts || [],
-        role: lastMessage.role,
-        content: lastMessage.content,
-        chat_thread_id: params.chatThreadId,
-        model: 'gpt-4o',
-        provider: 'openai',
+      return await db.insert(chatMessagesTable).values(dbChatMessages).onConflictDoNothing({
+        target: chatMessagesTable.id,
       })
     },
     onSuccess: () => {
@@ -63,26 +43,11 @@ export default function ChatDetailPage() {
     },
   })
 
-  const onFinish = async (response: { readonly messages: Array<Message> }) => {
-    if (!params.chatThreadId) return
-
-    const lastMessage = response.messages[response.messages.length - 1]
-
-    const parts: ChatMessagePart[] = typeof lastMessage.content === 'object' ? lastMessage.content : []
-    const content = lastMessage.content ? lastMessage.content : parts.find((part) => part.type === 'text')?.text || ''
-
-    await addMessageMutation.mutateAsync({
-      ...lastMessage,
-      parts,
-      content,
-    })
+  const saveMessages: SaveMessagesFunction = async ({ messages }) => {
+    await addMessagesMutation.mutateAsync(messages)
   }
 
-  useEffect(() => {
-    console.log('messages A', messages)
-  }, [messages])
-
-  return (
+  return params.chatThreadId ? (
     <>
       <div className="h-full w-full">
         {isLoading ? (
@@ -90,11 +55,13 @@ export default function ChatDetailPage() {
         ) : isError ? (
           <div>Error loading chat</div>
         ) : messages ? (
-          <Chat key={params.chatThreadId} apiKey={settingsContext.settings.models?.openai_api_key!} initialMessages={messages} onFinish={onFinish} />
+          <Chat key={params.chatThreadId} id={params.chatThreadId} apiKey={settingsContext.settings.models?.openai_api_key!} initialMessages={messages} saveMessages={saveMessages} />
         ) : (
           <div>Error loading chat</div>
         )}
       </div>
     </>
+  ) : (
+    <div>No chat thread ID</div>
   )
 }

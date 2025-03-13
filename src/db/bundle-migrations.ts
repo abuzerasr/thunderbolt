@@ -73,9 +73,18 @@ export interface Migration {
   sql: string;
 }
 
-export const migrations: Migration[] = ${JSON.stringify(migrations, null, 2)
-    .replace(/"sql": "([^"]+)"/g, (match, sql) => `"sql": \`${sql.replace(/`/g, '\\`')}\``)
-    .replace(/\\n/g, '\n')};
+export const migrations: Migration[] = [
+  ${migrations
+    .map((migration) => {
+      // Use JSON.stringify for the SQL content to ensure proper escaping
+      return `{
+    "hash": ${JSON.stringify(migration.hash)},
+    "name": ${JSON.stringify(migration.name)},
+    "sql": ${JSON.stringify(migration.sql)}
+  }`
+    })
+    .join(',\n  ')}
+];
 `
 
   // Write the output file
