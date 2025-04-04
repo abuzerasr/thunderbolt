@@ -28,7 +28,7 @@ export default function Page() {
           <Outlet />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel ref={ref} collapsible defaultSize={20} minSize={1} onCollapse={() => setSideview(null, null)}>
+        <ResizablePanel ref={ref} collapsible defaultSize={20} minSize={15} onCollapse={() => setSideview(null, null)}>
           <SidebarHeader>
             <SidebarGroup>
               <SidebarGroupContent className="flex justify-end w-full flex-1 items-center">
