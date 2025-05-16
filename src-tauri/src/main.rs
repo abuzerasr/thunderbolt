@@ -12,14 +12,17 @@ use assist_imap_sync::ImapSync;
 use chrono::{DateTime, Utc};
 use serde_json;
 use std::env;
-use tauri::{command, ActivationPolicy, Manager};
+use tauri::{command, Manager};
 use tokio::sync::Mutex;
 
 use crate::state::AppState;
 
 #[command]
 async fn toggle_dock_icon(app_handle: tauri::AppHandle, show: bool) -> Result<(), String> {
-    if cfg!(target_os = "macos") {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::ActivationPolicy;
+
         let policy = if show {
             ActivationPolicy::Regular
         } else {

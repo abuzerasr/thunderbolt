@@ -4,7 +4,6 @@ use candle_core as candle;
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
 use hf_hub::{api::sync::Api, Repo, RepoType};
-use objc::rc::autoreleasepool;
 use std::sync::Arc;
 
 pub struct Embedder {
@@ -15,8 +14,7 @@ pub struct Embedder {
 
 impl Embedder {
     pub fn new() -> anyhow::Result<Self> {
-        // Initialize Metal device instead of CPU
-        let device = candle::Device::new_metal(0)?;
+        let device = candle::Device::Cpu;
 
         // Get model and tokenizer files - use E5-small model
         let model_name = "intfloat/e5-small-v2";
@@ -50,48 +48,45 @@ impl Embedder {
     }
 
     pub fn generate_embedding(&self, text: &str) -> anyhow::Result<Tensor> {
-        // Use autoreleasepool to prevent Metal memory leaks
-        autoreleasepool(|| {
-            // Tokenize input with truncation
-            // E5 models typically use a specific format - add the prefix
-            let formatted_text = format!("passage: {}", text);
-            let encoding = self
-                .tokenizer
-                .encode(formatted_text, true)
-                .map_err(E::msg)?;
-            let max_tokens = 512; // E5-Small has a 512 token limit
+        // Tokenize input with truncation
+        // E5 models typically use a specific format - add the prefix
+        let formatted_text = format!("passage: {}", text);
+        let encoding = self
+            .tokenizer
+            .encode(formatted_text, true)
+            .map_err(E::msg)?;
+        let max_tokens = 512; // E5-Small has a 512 token limit
 
-            // Always truncate to max length for simplicity and consistency
-            let token_ids = if encoding.get_ids().len() > max_tokens {
-                encoding.get_ids()[0..max_tokens].to_vec()
-            } else {
-                encoding.get_ids().to_vec()
-            };
+        // Always truncate to max length for simplicity and consistency
+        let token_ids = if encoding.get_ids().len() > max_tokens {
+            encoding.get_ids()[0..max_tokens].to_vec()
+        } else {
+            encoding.get_ids().to_vec()
+        };
 
-            // Get attention mask
-            let attention_mask = if encoding.get_attention_mask().len() > max_tokens {
-                encoding.get_attention_mask()[0..max_tokens].to_vec()
-            } else {
-                encoding.get_attention_mask().to_vec()
-            };
+        // Get attention mask
+        let attention_mask = if encoding.get_attention_mask().len() > max_tokens {
+            encoding.get_attention_mask()[0..max_tokens].to_vec()
+        } else {
+            encoding.get_attention_mask().to_vec()
+        };
 
-            // Convert to tensors
-            let token_ids = Tensor::new(&token_ids[..], &self.device)?.unsqueeze(0)?;
-            let attention_mask = Tensor::new(&attention_mask[..], &self.device)?.unsqueeze(0)?;
-            let token_type_ids = token_ids.zeros_like()?;
+        // Convert to tensors
+        let token_ids = Tensor::new(&token_ids[..], &self.device)?.unsqueeze(0)?;
+        let attention_mask = Tensor::new(&attention_mask[..], &self.device)?.unsqueeze(0)?;
+        let token_type_ids = token_ids.zeros_like()?;
 
-            // Get embeddings using the standard BERT model
-            let embeddings =
-                self.model
-                    .forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+        // Get embeddings using the standard BERT model
+        let embeddings = self
+            .model
+            .forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
 
-            // E5 uses the CLS token (first token) embedding for sentence representation
-            let sentence_embedding = embeddings.i((.., 0, ..))?;
+        // E5 uses the CLS token (first token) embedding for sentence representation
+        let sentence_embedding = embeddings.i((.., 0, ..))?;
 
-            // Normalize and flatten embeddings
-            let normalized = normalize_l2(&sentence_embedding).map_err(E::msg)?;
-            normalized.flatten_all().map_err(E::msg)
-        })
+        // Normalize and flatten embeddings
+        let normalized = normalize_l2(&sentence_embedding).map_err(E::msg)?;
+        normalized.flatten_all().map_err(E::msg)
     }
 }
 
@@ -209,13 +204,6 @@ pub fn generate_embeddings(embedder: &Embedder, texts: &[String]) -> anyhow::Res
             20
         };
         std::thread::sleep(std::time::Duration::from_millis(batch_pause));
-
-        // Force cleanup with autoreleasepool periodically
-        if batch_idx % 3 == 0 {
-            autoreleasepool(|| {
-                // Empty pool to force resource cleanup
-            });
-        }
     }
 
     Ok(results)

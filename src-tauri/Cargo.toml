@@ -29,14 +29,6 @@ mozilla-assist-lib = { path = "." }
 name = "mozilla-assist"
 path = "src/main.rs"
 
-[[bin]]
-name = "mistral"
-path = "examples/mistral.rs"
-
-[[bin]]
-name = "summarize-many"
-path = "examples/summarize-many.rs"
-
 [build-dependencies]
 tauri-build = { version = "2.0.6", features = ["isolation"] }
 
@@ -55,13 +47,6 @@ anyhow = "1.0.97"
 tokio = "1.44.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 html2text = "0.14.2"
-# Base versions without Metal for all platforms
-candle-nn = { version = "0.8.3", features = ["metal"] }
-candle-core = { version = "0.8.3", features = ["metal"] }
-candle-transformers = { version = "0.8.3", features = ["metal"] }
-mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs.git", rev = "e2f9648cbb6e4b8a6ac1d9e44df5900210fa5862", features = [
-    "metal"
-] }
 tauri-plugin-devtools = "2.0.0"
 tauri-plugin-http = "2"
 tokio-stream = "0.1.17"
@@ -71,11 +56,11 @@ regex = "1.11.1"
 keyring = { version = "3.6.2", features = [
     "apple-native",
     "windows-native",
-    "sync-secret-service"
+    "sync-secret-service",
 ] }
 tauri-plugin-fs = "2"
 libsql = { git = "https://github.com/libsql/libsql.git", rev = "d980ce13b9c4b3f05b03dd1b9ca2fb2765c0cb68", features = [
-    "encryption"
+    "encryption",
 ] }
 base64 = "0.22.1"
 bytes = "1.10.1"
@@ -85,18 +70,18 @@ assist_imap_sync = { path = "./assist_imap_sync" }
 assist_embeddings = { path = "./assist_embeddings" }
 
 [profile.dev]
-incremental = true # Compile your binary in smaller steps.
+incremental = true                              # Compile your binary in smaller steps.
 rustflags = ["-C", "target-feature=+fp16,+fhm"]
 
 [profile.dev.package]
 "candle-nn" = { opt-level = 3, debug = false }
 "candle-core" = { opt-level = 3, debug = false }
 "candle-transformers" = { opt-level = 3, debug = false }
-"mistralrs" = { opt-level = 3, debug = false }
+# "mistralrs" = { opt-level = 3, debug = false }
 
 [profile.release]
 codegen-units = 1 # Allows LLVM to perform better optimization.
-lto = true # Enables link-time-optimizations.
-opt-level = "s" # Prioritizes small binary size. Use `3` if you prefer speed.
-panic = "abort" # Higher performance by disabling panic handlers.
-strip = true # Ensures debug symbols are removed.
+lto = true        # Enables link-time-optimizations.
+opt-level = "s"   # Prioritizes small binary size. Use `3` if you prefer speed.
+panic = "abort"   # Higher performance by disabling panic handlers.
+strip = true      # Ensures debug symbols are removed.
