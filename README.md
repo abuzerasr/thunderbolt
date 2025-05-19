@@ -1,6 +1,12 @@
-# Mozilla Assist
+# Thunderbolt
+***(Formerly known as Mozilla Assist(ant))***
 
-Stack:
+![Thunderbolt Main Dashboard](./docs/screenshots/main.png)
+![Thunderbolt Chat](./docs/screenshots/chat.png)
+
+
+## Stack:
+
 * TypeScript
 * Rust
 * Tauri - for creating the desktop / mobile application
