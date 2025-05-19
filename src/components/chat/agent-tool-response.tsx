@@ -1,7 +1,7 @@
 import { ToolInvocationUIPart } from '@ai-sdk/ui-utils'
-import { AlertCircle, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { ChatMessagePreview } from './message-preview'
-
+import { tools } from '@/lib/ai-tools'
 export type AgentToolResponseProps = {
   part: ToolInvocationUIPart
 }
@@ -35,9 +35,9 @@ export const AgentToolResponse = ({ part }: AgentToolResponseProps) => {
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-lg shadow-sm text-foreground dark:text-foreground/90 leading-relaxed flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            <span>Unknown tool: {part.toolInvocation.toolName}</span>
+          <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg shadow-sm text-foreground dark:text-foreground/90 leading-relaxed flex items-center gap-2">
+            <Search className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-pulse" />
+            <span className="italic">{tools[part.toolInvocation.toolName as keyof typeof tools].verb}</span>
           </div>
         </div>
       )}
