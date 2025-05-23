@@ -64,7 +64,6 @@ export async function bundleMigrations(options?: { migrationsDir?: string; outpu
   // Generate TypeScript file content
   const fileContent = `/**
  * This file is auto-generated. Do not edit directly.
- * Generated on: ${new Date().toISOString()}
  */
 
 export interface Migration {

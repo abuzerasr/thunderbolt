@@ -77,7 +77,8 @@ export const createModel = (modelConfig: Model): LanguageModel => {
         apiKey: modelConfig.apiKey,
       })
 
-      const model = deepinfra('meta-llama/Meta-Llama-3.1-70B-Instruct')
+      // const model = deepinfra('meta-llama/Meta-Llama-3.1-70B-Instruct')
+      const model = deepinfra(modelConfig.model)
 
       return model as LanguageModel
     }
@@ -170,9 +171,9 @@ export const aiFetchStreamingResponse = async ({ init, saveMessages, model: mode
         },
       },
       // continueUntil: hasToolCall('answer'),
-      continueUntil: maxSteps(5),
+      // continueUntil: maxSteps(5),
 
-      // toolChoice: 'required',
+      toolChoice: 'required',
     })
 
     return result.toUIMessageStreamResponse({

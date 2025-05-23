@@ -24,7 +24,6 @@ export default function ChatDetailPage() {
       return chatMessages.map(convertDbChatMessageToUIMessage)
     },
     enabled: !!params.chatThreadId,
-    initialData: [],
   })
 
   const addMessagesMutation = useMutation({

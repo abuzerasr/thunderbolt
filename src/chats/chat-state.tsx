@@ -97,7 +97,7 @@ export default function ChatState({ id, models, settings, initialMessages, saveM
   })
 
   const chatHelpers = useChat({
-    chatId: id,
+    id,
     chatStore,
     generateId: uuidv7,
     onFinish: async ({ message }) => {
