@@ -1,4 +1,6 @@
+import gzip
 import logging
+import zlib
 from typing import Any
 from urllib.parse import parse_qs, urlencode
 
@@ -7,6 +9,17 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
+
+# Try to import brotli for decompression support
+try:
+    import brotli
+
+    HAS_BROTLI = True
+except ImportError:
+    HAS_BROTLI = False
+    logger.warning(
+        "Brotli module not available - brotli decompression will not be supported"
+    )
 
 
 class ProxyConfig:
@@ -233,9 +246,98 @@ class ProxyService:
             # Create response headers
             response_headers = dict(response.headers)
 
-            # httpx automatically decompresses content when accessing response.content
-            # So we need to remove compression-related headers
-            content: bytes = response.content
+            # Debug logging for compression analysis
+            logger.info(f"Original response headers: {response_headers}")
+            content_encoding = response_headers.get("content-encoding", "").lower()
+            logger.info(f"Response encoding: {content_encoding}")
+
+            # Check if httpx already decompressed (it does by default when you access .content)
+            # Let's try accessing raw content instead
+            try:
+                # Try to get raw content without decompression
+                raw_content = response.read()
+                logger.info(
+                    f"Raw content first 10 bytes hex: {raw_content[:10].hex() if len(raw_content) >= 10 else raw_content.hex()}"
+                )
+
+                # Check if it looks like compressed data
+                is_brotli = (
+                    raw_content[:2] == b"\x1b\x2a"
+                    or raw_content[:2] == b"\x1b\x2b"
+                    or raw_content[:2] == b"\xce\xb2\xcf\x81"
+                )
+                is_gzip = raw_content[:2] == b"\x1f\x8b"
+                is_deflate = (
+                    raw_content[:2] == b"\x78\x9c"
+                    or raw_content[:2] == b"\x78\x01"
+                    or raw_content[:2] == b"\x78\xda"
+                )
+
+                logger.info(
+                    f"Detected compression - Brotli: {is_brotli}, Gzip: {is_gzip}, Deflate: {is_deflate}"
+                )
+
+                # Use raw content for decompression
+                content = raw_content
+            except:
+                # Fallback to response.content if raw reading fails
+                content = response.content
+                logger.info(
+                    f"Using response.content, first 10 bytes hex: {content[:10].hex() if len(content) >= 10 else content.hex()}"
+                )
+
+            # Manually decompress if needed based on content-encoding header OR detected compression
+            needs_decompression = bool(content_encoding)
+
+            # Also check if the content looks compressed even without header
+            if not needs_decompression and len(content) > 2:
+                if content[:2] in [b"\x1b\x2a", b"\x1b\x2b", b"\xce\xb2\xcf\x81"]:
+                    logger.info("Detected Brotli compression by magic bytes")
+                    needs_decompression = True
+                    content_encoding = "br"
+                elif content[:2] == b"\x1f\x8b":
+                    logger.info("Detected Gzip compression by magic bytes")
+                    needs_decompression = True
+                    content_encoding = "gzip"
+                elif content[:2] in [b"\x78\x9c", b"\x78\x01", b"\x78\xda"]:
+                    logger.info("Detected Deflate compression by magic bytes")
+                    needs_decompression = True
+                    content_encoding = "deflate"
+
+            if needs_decompression:
+                try:
+                    if content_encoding in ["br", "brotli"]:
+                        if HAS_BROTLI:
+                            logger.info("Decompressing brotli content")
+                            content = brotli.decompress(content)
+                            logger.info(f"Decompressed content length: {len(content)}")
+                        else:
+                            logger.error(
+                                "Brotli compression detected but brotli module not available"
+                            )
+                            raise HTTPException(
+                                status_code=500,
+                                detail="Server configuration error: brotli support not available",
+                            )
+                    elif content_encoding == "gzip":
+                        logger.info("Decompressing gzip content")
+                        content = gzip.decompress(content)
+                    elif content_encoding == "deflate":
+                        logger.info("Decompressing deflate content")
+                        content = zlib.decompress(content)
+                    else:
+                        logger.warning(f"Unknown content encoding: {content_encoding}")
+                except Exception as e:
+                    logger.error(f"Error decompressing content: {e}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error decompressing response: {str(e)}",
+                    )
+
+            # Remove all compression and encoding related headers since we've decompressed
+            response_headers.pop("content-encoding", None)
+            response_headers.pop("transfer-encoding", None)
+            response_headers.pop("vary", None)
 
             # Log for debugging
             logger.info(f"Response headers before cleanup: {response_headers}")
@@ -245,36 +347,49 @@ class ProxyService:
             )
             logger.info(f"Content length: {len(content)}")
 
-            # Remove headers that are no longer valid after decompression
-            response_headers.pop("content-encoding", None)
-            response_headers.pop("content-length", None)
-            response_headers.pop("transfer-encoding", None)
-
-            # Ensure content-type is preserved and set content-length
+            # Detect and handle content type
             content_type = response_headers.get(
                 "content-type", "application/octet-stream"
             )
 
-            # Handle text-based content types properly
-            if any(
-                ct in content_type.lower()
-                for ct in ["application/json", "text/", "application/xml"]
-            ):
-                # For text-based responses, ensure content is decoded properly
+            # Special handling for JSON responses
+            if "application/json" in content_type.lower():
                 try:
-                    # Try to decode JSON responses to ensure proper UTF-8 handling
-                    if "application/json" in content_type.lower():
-                        import json
+                    # For JSON responses, make sure it's properly formatted
+                    import json
 
-                        # Decode bytes to string, then parse and re-encode to ensure proper formatting
+                    # Try to decode as UTF-8 first (most common)
+                    try:
                         json_str = content.decode("utf-8")
-                        parsed_json = json.loads(json_str)
-                        content = json.dumps(parsed_json).encode("utf-8")
-                except Exception as e:
-                    logger.error(f"Error handling JSON content: {e}")
-                    # Continue with original content if parsing fails
+                    except UnicodeDecodeError:
+                        # If that fails, try other common encodings
+                        for encoding in ["latin1", "iso-8859-1", "windows-1252"]:
+                            try:
+                                json_str = content.decode(encoding)
+                                break
+                            except UnicodeDecodeError:
+                                continue
+                        else:
+                            # If all decoding attempts fail, use latin1 as a fallback
+                            json_str = content.decode("latin1", errors="replace")
 
-            # Set proper content length
+                    # Try to parse the JSON and re-encode it properly
+                    parsed_json = json.loads(json_str)
+                    content = json.dumps(parsed_json).encode("utf-8")
+
+                    # Set proper content type with charset
+                    content_type = "application/json; charset=utf-8"
+                    response_headers["content-type"] = content_type
+
+                    # Log success
+                    logger.info(
+                        f"Successfully processed JSON response: {content[:100]}"
+                    )
+                except Exception as e:
+                    # Log the error but continue with original content
+                    logger.error(f"Error processing JSON content: {e}")
+
+            # Set the correct content length
             response_headers["content-length"] = str(len(content))
 
             # For debugging: log first 200 chars if it's text content
@@ -284,14 +399,6 @@ class ProxyService:
                     logger.info(f"Content preview: {content_preview}")
                 except Exception:
                     logger.info("Content is not valid UTF-8")
-
-            # Ensure proper charset is set for text content types if missing
-            if (
-                "application/json" in content_type.lower()
-                or "text/" in content_type.lower()
-            ) and "charset" not in content_type.lower():
-                content_type = f"{content_type}; charset=utf-8"
-                response_headers["content-type"] = content_type
 
             return Response(
                 content=content,
