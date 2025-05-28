@@ -251,90 +251,53 @@ class ProxyService:
             content_encoding = response_headers.get("content-encoding", "").lower()
             logger.info(f"Response encoding: {content_encoding}")
 
-            # Check if httpx already decompressed (it does by default when you access .content)
-            # Let's try accessing raw content instead
-            try:
-                # Try to get raw content without decompression
-                raw_content = response.read()
-                logger.info(
-                    f"Raw content first 10 bytes hex: {raw_content[:10].hex() if len(raw_content) >= 10 else raw_content.hex()}"
-                )
+            # Get response content
+            content = response.read()
 
-                # Check if it looks like compressed data
-                is_brotli = (
-                    raw_content[:2] == b"\x1b\x2a"
-                    or raw_content[:2] == b"\x1b\x2b"
-                    or raw_content[:2] == b"\xce\xb2\xcf\x81"
-                )
-                is_gzip = raw_content[:2] == b"\x1f\x8b"
-                is_deflate = (
-                    raw_content[:2] == b"\x78\x9c"
-                    or raw_content[:2] == b"\x78\x01"
-                    or raw_content[:2] == b"\x78\xda"
-                )
-
-                logger.info(
-                    f"Detected compression - Brotli: {is_brotli}, Gzip: {is_gzip}, Deflate: {is_deflate}"
-                )
-
-                # Use raw content for decompression
-                content = raw_content
-            except:
-                # Fallback to response.content if raw reading fails
-                content = response.content
-                logger.info(
-                    f"Using response.content, first 10 bytes hex: {content[:10].hex() if len(content) >= 10 else content.hex()}"
-                )
-
-            # Manually decompress if needed based on content-encoding header OR detected compression
-            needs_decompression = bool(content_encoding)
-
-            # Also check if the content looks compressed even without header
-            if not needs_decompression and len(content) > 2:
-                if content[:2] in [b"\x1b\x2a", b"\x1b\x2b", b"\xce\xb2\xcf\x81"]:
-                    logger.info("Detected Brotli compression by magic bytes")
-                    needs_decompression = True
-                    content_encoding = "br"
-                elif content[:2] == b"\x1f\x8b":
-                    logger.info("Detected Gzip compression by magic bytes")
-                    needs_decompression = True
-                    content_encoding = "gzip"
-                elif content[:2] in [b"\x78\x9c", b"\x78\x01", b"\x78\xda"]:
-                    logger.info("Detected Deflate compression by magic bytes")
-                    needs_decompression = True
-                    content_encoding = "deflate"
-
-            if needs_decompression:
+            # Check if decompression is needed based on content-encoding header
+            # httpx may automatically decompress but not remove the content-encoding header
+            if content_encoding:
                 try:
                     if content_encoding in ["br", "brotli"]:
                         if HAS_BROTLI:
-                            logger.info("Decompressing brotli content")
-                            content = brotli.decompress(content)
-                            logger.info(f"Decompressed content length: {len(content)}")
+                            # Try to decompress - if it fails, content was already decompressed
+                            try:
+                                content = brotli.decompress(content)
+                                logger.debug("Successfully decompressed brotli content")
+                            except brotli.error:
+                                # Content was already decompressed by httpx
+                                logger.debug("Content already decompressed by httpx")
                         else:
-                            logger.error(
-                                "Brotli compression detected but brotli module not available"
-                            )
                             raise HTTPException(
                                 status_code=500,
                                 detail="Server configuration error: brotli support not available",
                             )
                     elif content_encoding == "gzip":
-                        logger.info("Decompressing gzip content")
-                        content = gzip.decompress(content)
+                        try:
+                            content = gzip.decompress(content)
+                            logger.debug("Successfully decompressed gzip content")
+                        except gzip.BadGzipFile:
+                            # Content was already decompressed by httpx
+                            logger.debug("Content already decompressed by httpx")
                     elif content_encoding == "deflate":
-                        logger.info("Decompressing deflate content")
-                        content = zlib.decompress(content)
-                    else:
-                        logger.warning(f"Unknown content encoding: {content_encoding}")
+                        try:
+                            content = zlib.decompress(content)
+                            logger.debug("Successfully decompressed deflate content")
+                        except zlib.error:
+                            # Content was already decompressed by httpx
+                            logger.debug("Content already decompressed by httpx")
+                except HTTPException:
+                    # Re-raise HTTP exceptions (like missing brotli support)
+                    raise
                 except Exception as e:
-                    logger.error(f"Error decompressing content: {e}")
+                    # For any other unexpected errors, log and raise
+                    logger.error(f"Unexpected error during decompression: {e}")
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Error decompressing response: {str(e)}",
+                        detail=f"Error processing response: {str(e)}",
                     )
 
-            # Remove all compression and encoding related headers since we've decompressed
+            # Remove compression-related headers since content is now uncompressed
             response_headers.pop("content-encoding", None)
             response_headers.pop("transfer-encoding", None)
             response_headers.pop("vary", None)
