@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Set
+from typing import Any
 from urllib.parse import parse_qs, urlencode
 
 import httpx
@@ -15,12 +15,12 @@ class ProxyConfig:
     def __init__(
         self,
         target_url: str,
-        api_key: Optional[str] = None,
-        api_key_header: str = "X-API-Key",
+        api_key: str,
+        api_key_header: str = "Authorization",
         api_key_as_query_param: bool = False,
         api_key_query_param_name: str = "key",
-        strip_headers: Optional[Set[str]] = None,
-        strip_query_params: Optional[Set[str]] = None,
+        strip_headers: set[str] | None = None,
+        strip_query_params: set[str] | None = None,
         require_auth: bool = True,
         supports_streaming: bool = False,
     ):
@@ -29,18 +29,8 @@ class ProxyConfig:
         self.api_key_header = api_key_header
         self.api_key_as_query_param = api_key_as_query_param
         self.api_key_query_param_name = api_key_query_param_name
-        self.strip_headers = strip_headers or {
-            "authorization",
-            "x-forwarded-for",
-            "x-real-ip",
-            "x-forwarded-host",
-            "x-forwarded-proto",
-            "cookie",
-        }
-        # Only strip the specific API key parameter when server-configured API key is used
-        self.strip_query_params = strip_query_params or (
-            {api_key_query_param_name} if api_key and api_key_as_query_param else set()
-        )
+        self.strip_headers = strip_headers or set()
+        self.strip_query_params = strip_query_params or set()
         self.require_auth = require_auth
         self.supports_streaming = supports_streaming
 
@@ -48,19 +38,19 @@ class ProxyConfig:
 class ProxyService:
     """Service to handle proxying requests to external APIs"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = httpx.AsyncClient(
-            timeout=30.0,
+            timeout=httpx.Timeout(30.0, connect=5.0),
             follow_redirects=True,
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
         )
-        self.configs: Dict[str, ProxyConfig] = {}
+        self.configs: dict[str, ProxyConfig] = {}
 
-    def register_proxy(self, path_prefix: str, config: ProxyConfig):
+    def register_proxy(self, path_prefix: str, config: ProxyConfig) -> None:
         """Register a new proxy configuration for a path prefix"""
         self.configs[path_prefix] = config
 
-    def get_config(self, path: str) -> Optional[ProxyConfig]:
+    def get_config(self, path: str) -> ProxyConfig | None:
         """Get the proxy configuration for a given path"""
         for prefix, config in self.configs.items():
             if path.startswith(prefix):
@@ -73,7 +63,7 @@ class ProxyService:
         # For now, just check if Authorization header exists
         return "authorization" in request.headers
 
-    def prepare_headers(self, request: Request, config: ProxyConfig) -> Dict[str, str]:
+    def prepare_headers(self, request: Request, config: ProxyConfig) -> dict[str, str]:
         """Prepare headers for the proxied request"""
         headers = {}
 
@@ -98,6 +88,34 @@ class ProxyService:
 
         return headers
 
+    def _process_query_params(
+        self, request: Request, config: ProxyConfig
+    ) -> dict[str, Any]:
+        """Process and clean query parameters"""
+        query_params: dict[str, Any] = {}
+        if request.url.query:
+            parsed_params = parse_qs(str(request.url.query), keep_blank_values=True)
+            # Convert lists to single values for simplicity
+            for k, v in parsed_params.items():
+                if isinstance(v, list) and len(v) == 1:
+                    query_params[k] = v[0]
+                else:
+                    query_params[k] = v
+
+            # Remove any query parameters that should be stripped
+            for param in config.strip_query_params:
+                if param in query_params:
+                    logger.debug(
+                        f"Stripping query parameter '{param}' from client request"
+                    )
+                query_params.pop(param, None)
+
+        # Add API key as query parameter if configured
+        if config.api_key and config.api_key_as_query_param:
+            query_params[config.api_key_query_param_name] = config.api_key
+
+        return query_params
+
     async def proxy_streaming_request(
         self, request: Request, path: str, config: ProxyConfig
     ) -> StreamingResponse:
@@ -108,31 +126,7 @@ class ProxyService:
 
         # Handle query parameters
         if request.url.query or (config.api_key and config.api_key_as_query_param):
-            # Parse existing query parameters
-            query_params = {}
-            if request.url.query:
-                query_params = dict(
-                    parse_qs(str(request.url.query), keep_blank_values=True)
-                )
-                # Convert lists to single values for simplicity
-                query_params = {
-                    k: v[0] if isinstance(v, list) and len(v) == 1 else v
-                    for k, v in query_params.items()
-                }
-
-                # Remove any query parameters that should be stripped
-                for param in config.strip_query_params:
-                    if param in query_params:
-                        logger.debug(
-                            f"Stripping query parameter '{param}' from client request"
-                        )
-                    query_params.pop(param, None)
-
-            # Add API key as query parameter if configured
-            # This ensures the server-configured API key always takes precedence
-            if config.api_key and config.api_key_as_query_param:
-                query_params[config.api_key_query_param_name] = config.api_key
-
+            query_params = self._process_query_params(request, config)
             # Build query string
             query_string = urlencode(query_params, doseq=True)
             if query_string:
@@ -148,7 +142,7 @@ class ProxyService:
             # Make the proxied request with streaming
             logger.info(f"Proxying streaming request to: {target_url}")
 
-            async def stream_response():
+            async def stream_response() -> Any:
                 async with self.client.stream(
                     method=request.method,
                     url=target_url,
@@ -168,11 +162,11 @@ class ProxyService:
                 media_type="text/event-stream",
             )
 
-        except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="Gateway timeout")
+        except httpx.TimeoutException as e:
+            raise HTTPException(status_code=504, detail="Gateway timeout") from e
         except httpx.RequestError as e:
             logger.error(f"Proxy streaming request failed: {e}")
-            raise HTTPException(status_code=502, detail="Bad gateway")
+            raise HTTPException(status_code=502, detail="Bad gateway") from e
 
     async def proxy_request(
         self, request: Request, path: str, config: ProxyConfig
@@ -196,7 +190,7 @@ class ProxyService:
                     is_streaming = body_json.get("stream", False)
                     # Put the body back for later use
                     request._body = body_bytes
-                except:
+                except Exception:
                     pass
 
             # Also check accept header
@@ -212,31 +206,7 @@ class ProxyService:
 
         # Handle query parameters
         if request.url.query or (config.api_key and config.api_key_as_query_param):
-            # Parse existing query parameters
-            query_params = {}
-            if request.url.query:
-                query_params = dict(
-                    parse_qs(str(request.url.query), keep_blank_values=True)
-                )
-                # Convert lists to single values for simplicity
-                query_params = {
-                    k: v[0] if isinstance(v, list) and len(v) == 1 else v
-                    for k, v in query_params.items()
-                }
-
-                # Remove any query parameters that should be stripped
-                for param in config.strip_query_params:
-                    if param in query_params:
-                        logger.debug(
-                            f"Stripping query parameter '{param}' from client request"
-                        )
-                    query_params.pop(param, None)
-
-            # Add API key as query parameter if configured
-            # This ensures the server-configured API key always takes precedence
-            if config.api_key and config.api_key_as_query_param:
-                query_params[config.api_key_query_param_name] = config.api_key
-
+            query_params = self._process_query_params(request, config)
             # Build query string
             query_string = urlencode(query_params, doseq=True)
             if query_string:
@@ -265,15 +235,45 @@ class ProxyService:
 
             # httpx automatically decompresses content when accessing response.content
             # So we need to remove compression-related headers
-            content = response.content
+            content: bytes = response.content
 
             # Log for debugging
             logger.info(f"Response headers before cleanup: {response_headers}")
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(
+                f"Content type: {response_headers.get('content-type', 'unknown')}"
+            )
+            logger.info(f"Content length: {len(content)}")
 
             # Remove headers that are no longer valid after decompression
             response_headers.pop("content-encoding", None)
             response_headers.pop("content-length", None)
             response_headers.pop("transfer-encoding", None)
+
+            # Ensure content-type is preserved and set content-length
+            content_type = response_headers.get(
+                "content-type", "application/octet-stream"
+            )
+
+            # Handle text-based content types properly
+            if any(
+                ct in content_type.lower()
+                for ct in ["application/json", "text/", "application/xml"]
+            ):
+                # For text-based responses, we keep content as bytes
+                # FastAPI will handle the encoding properly
+                pass
+
+            # Set proper content length
+            response_headers["content-length"] = str(len(content))
+
+            # For debugging: log first 200 chars if it's text content
+            if "text/" in content_type or "application/json" in content_type:
+                try:
+                    content_preview = content.decode("utf-8")[:200]
+                    logger.info(f"Content preview: {content_preview}")
+                except Exception:
+                    logger.info("Content is not valid UTF-8")
 
             return Response(
                 content=content,
@@ -281,13 +281,13 @@ class ProxyService:
                 headers=response_headers,
             )
 
-        except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="Gateway timeout")
+        except httpx.TimeoutException as e:
+            raise HTTPException(status_code=504, detail="Gateway timeout") from e
         except httpx.RequestError as e:
             logger.error(f"Proxy request failed: {e}")
-            raise HTTPException(status_code=502, detail="Bad gateway")
+            raise HTTPException(status_code=502, detail="Bad gateway") from e
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP client"""
         await self.client.aclose()
 

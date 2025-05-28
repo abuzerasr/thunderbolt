@@ -1,20 +1,24 @@
 from contextlib import asynccontextmanager
 from functools import lru_cache
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from backend.config import Settings
-from backend.proxy import ProxyConfig, ProxyService, get_proxy_service
+from config import Settings
+from proxy import ProxyConfig, ProxyService, get_proxy_service
 
 
 @lru_cache
-def get_settings():
+def get_settings() -> Settings:
+    """Get cached settings instance."""
     return Settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> Any:
+    """Application lifespan manager for startup and shutdown events."""
     # Startup
     settings = get_settings()
     proxy_service = await get_proxy_service()
@@ -56,39 +60,45 @@ async def lifespan(app: FastAPI):
     await proxy_service.close()
 
 
-app = FastAPI(lifespan=lifespan)
+# Create FastAPI app instance
+app = FastAPI(
+    title="Thunderbolt Backend",
+    description="A FastAPI backend with proxy capabilities",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
-# Add CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],  # TODO: In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-settings = get_settings()
 
-
-@app.get("/health")
-async def health():
+@app.get("/health", response_model=dict[str, str])
+async def health() -> dict[str, str]:
+    """Health check endpoint."""
     return {"status": "ok"}
 
 
 # OpenAI-compatible endpoints
 @app.api_route(
-    "/openai/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    "/openai/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    include_in_schema=False,  # Hide from OpenAPI schema as it's a proxy
 )
 async def openai_proxy_endpoint(
     path: str,
     request: Request,
     proxy_service: ProxyService = Depends(get_proxy_service),
-):
-    """OpenAI-compatible proxy endpoint"""
-
+) -> Any:
+    """OpenAI-compatible proxy endpoint."""
     # Handle OPTIONS preflight requests
     if request.method == "OPTIONS":
-        return {"status": "ok"}
+        return JSONResponse({"status": "ok"})
 
     # Get the configuration for this path
     config = proxy_service.get_config("/openai")
@@ -96,24 +106,24 @@ async def openai_proxy_endpoint(
         raise HTTPException(status_code=404, detail="OpenAI proxy not configured")
 
     # No auth required for this endpoint - it's handled by the proxy
-
     # Proxy the request
     return await proxy_service.proxy_request(request, path, config)
 
 
 @app.api_route(
-    "/proxy/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    "/proxy/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    include_in_schema=False,  # Hide from OpenAPI schema as it's a proxy
 )
 async def proxy_endpoint(
     path: str,
     request: Request,
     proxy_service: ProxyService = Depends(get_proxy_service),
-):
-    """Generic proxy endpoint that routes based on path"""
-
+) -> Any:
+    """Generic proxy endpoint that routes based on path."""
     # Handle OPTIONS preflight requests
     if request.method == "OPTIONS":
-        return {"status": "ok"}
+        return JSONResponse({"status": "ok"})
 
     # Get the configuration for this path
     config = proxy_service.get_config(f"/proxy/{path}")

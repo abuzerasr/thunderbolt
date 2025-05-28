@@ -1,6 +1,6 @@
 import asyncio
+import contextlib
 import logging
-from typing import Optional
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
@@ -15,7 +15,7 @@ class WebSocketProxyConfig:
     def __init__(
         self,
         target_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         api_key_header: str = "Authorization",
         require_auth: bool = True,
     ):
@@ -26,125 +26,120 @@ class WebSocketProxyConfig:
 
 
 class WebSocketProxyService:
-    """Service to handle WebSocket proxying"""
+    """Service to handle WebSocket proxy connections"""
 
-    def __init__(self):
-        self.configs = {}
+    def __init__(self) -> None:
+        self.configs: dict[str, WebSocketProxyConfig] = {}
 
-    def register_proxy(self, path_prefix: str, config: WebSocketProxyConfig):
-        """Register a new WebSocket proxy configuration"""
+    def register_proxy(self, path_prefix: str, config: WebSocketProxyConfig) -> None:
+        """Register a new WebSocket proxy configuration for a path prefix"""
         self.configs[path_prefix] = config
 
-    def get_config(self, path: str) -> Optional[WebSocketProxyConfig]:
+    def get_config(self, path: str) -> WebSocketProxyConfig | None:
         """Get the proxy configuration for a given path"""
         for prefix, config in self.configs.items():
             if path.startswith(prefix):
                 return config
         return None
 
+    async def verify_auth(self, websocket: WebSocket) -> bool:
+        """Verify the WebSocket connection has proper authentication"""
+        # Implement your auth logic here
+        # For now, just check if Authorization header exists
+        return "authorization" in websocket.headers
+
     async def proxy_websocket(
         self,
-        client_ws: WebSocket,
+        client_websocket: WebSocket,
         path: str,
         config: WebSocketProxyConfig,
-    ):
-        """Proxy WebSocket connection between client and target server"""
-        # Build target URL
-        target_url = f"{config.target_url}/{path}"
+    ) -> None:
+        """Proxy WebSocket connection to the target URL"""
 
-        # Prepare headers
+        # Build target URL
+        target_url = f"{config.target_url.replace('http', 'ws')}/{path}"
+
+        # Prepare headers for the target connection
         headers = {}
         if config.api_key:
-            if config.api_key_header.lower() == "authorization":
+            if (
+                config.api_key_header.lower() == "authorization"
+                and not config.api_key.startswith("Bearer ")
+            ):
                 headers[config.api_key_header] = f"Bearer {config.api_key}"
             else:
                 headers[config.api_key_header] = config.api_key
 
-        # Extract additional headers from client
-        client_headers = dict(client_ws.headers)
-        for key, value in client_headers.items():
-            if key.lower() not in [
-                "host",
-                "connection",
-                "upgrade",
-                "sec-websocket-key",
-                "sec-websocket-version",
-            ]:
-                headers[key] = value
-
-        server_ws = None
         try:
-            # Connect to target server
-            logger.info(f"Connecting to WebSocket: {target_url}")
-            server_ws = await websockets.connect(
+            # Connect to the target WebSocket
+            logger.info(f"Connecting to target WebSocket: {target_url}")
+
+            async with websockets.connect(
                 target_url,
                 extra_headers=headers,
-            )
+            ) as target_websocket:
+                logger.info("Connected to target WebSocket")
 
-            # Create tasks for bidirectional message forwarding
-            client_to_server = asyncio.create_task(
-                self._forward_messages(client_ws, server_ws, "client->server")
-            )
-            server_to_client = asyncio.create_task(
-                self._forward_messages_ws(server_ws, client_ws, "server->client")
-            )
+                # Create tasks for bidirectional message forwarding
+                async def forward_to_target() -> None:
+                    """Forward messages from client to target"""
+                    try:
+                        while True:
+                            if (
+                                client_websocket.client_state
+                                == WebSocketState.DISCONNECTED
+                            ):
+                                break
 
-            # Wait for either task to complete (connection closed)
-            done, pending = await asyncio.wait(
-                [client_to_server, server_to_client],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
+                            message = await client_websocket.receive_text()
+                            await target_websocket.send(message)
+                            logger.debug(
+                                f"Forwarded message to target: {message[:100]}..."
+                            )
+                    except WebSocketDisconnect:
+                        logger.info("Client WebSocket disconnected")
+                    except Exception as e:
+                        logger.error(f"Error forwarding to target: {e}")
 
-            # Cancel pending tasks
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+                async def forward_to_client() -> None:
+                    """Forward messages from target to client"""
+                    try:
+                        async for message in target_websocket:
+                            if (
+                                client_websocket.client_state
+                                == WebSocketState.DISCONNECTED
+                            ):
+                                break
 
-        except Exception as e:
-            logger.error(f"WebSocket proxy error: {e}")
-            if client_ws.client_state == WebSocketState.CONNECTED:
-                await client_ws.close(code=1011, reason=str(e))
-        finally:
-            # Clean up connections
-            if server_ws:
-                await server_ws.close()
+                            # Ensure message is a string for send_text
+                            if isinstance(message, bytes):
+                                message_str = message.decode("utf-8")
+                            else:
+                                message_str = message
 
-    async def _forward_messages(self, from_ws: WebSocket, to_ws, direction: str):
-        """Forward messages from FastAPI WebSocket to websockets client"""
-        try:
-            while True:
-                # Receive from FastAPI WebSocket
-                data = await from_ws.receive()
+                            await client_websocket.send_text(message_str)
+                            logger.debug(
+                                f"Forwarded message to client: {message_str[:100]}..."
+                            )
+                    except WebSocketDisconnect:
+                        logger.info("Client WebSocket disconnected")
+                    except Exception as e:
+                        logger.error(f"Error forwarding to client: {e}")
 
-                if "text" in data:
-                    await to_ws.send(data["text"])
-                elif "bytes" in data:
-                    await to_ws.send(data["bytes"])
-                else:
-                    # Connection closing
-                    break
-
-        except WebSocketDisconnect:
-            logger.info(f"WebSocket disconnected: {direction}")
-        except Exception as e:
-            logger.error(f"Error forwarding messages {direction}: {e}")
-
-    async def _forward_messages_ws(self, from_ws, to_ws: WebSocket, direction: str):
-        """Forward messages from websockets client to FastAPI WebSocket"""
-        try:
-            async for message in from_ws:
-                if isinstance(message, str):
-                    await to_ws.send_text(message)
-                elif isinstance(message, bytes):
-                    await to_ws.send_bytes(message)
+                # Run both forwarding tasks concurrently
+                await asyncio.gather(
+                    forward_to_target(),
+                    forward_to_client(),
+                    return_exceptions=True,
+                )
 
         except websockets.exceptions.ConnectionClosed:
-            logger.info(f"WebSocket closed: {direction}")
+            logger.info("Target WebSocket connection closed")
         except Exception as e:
-            logger.error(f"Error forwarding messages {direction}: {e}")
+            logger.error(f"WebSocket proxy error: {e}")
+            # Try to close the client connection gracefully
+            with contextlib.suppress(Exception):
+                await client_websocket.close(code=1011, reason="Proxy error")
 
 
 # Global WebSocket proxy service instance
