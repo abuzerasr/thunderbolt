@@ -6,7 +6,6 @@
       "dependencies": {
         "@agentic/ai-sdk": "^7.6.5",
         "@agentic/weather": "^7.6.5",
-        "@ai-sdk/deepinfra": "^1.0.0-alpha.7",
         "@ai-sdk/fireworks": "^1.0.0-alpha.7",
         "@ai-sdk/openai": "^2.0.0-alpha.7",
         "@ai-sdk/openai-compatible": "^1.0.0-alpha.7",
@@ -90,8 +89,6 @@
     "@agentic/core": ["@agentic/core@7.6.5", "", { "dependencies": { "dedent": "^1.6.0", "delay": "^6.0.0", "jsonrepair": "^3.12.0", "ky": "^1.8.1", "openai-zod-to-json-schema": "^1.0.3", "p-throttle": "6.2.0", "type-fest": "^4.41.0", "zod-validation-error": "^3.4.1" }, "peerDependencies": { "zod": "^3.25.28" } }, "sha512-+hr+XdvploodvHLxiBdRCR1LRCRyX9orlH5hMBBHb9DRp5L8dNlM3YMvcsQkCaG+E/rRP8C88p4zkynrYl8T1g=="],
 
     "@agentic/weather": ["@agentic/weather@7.6.5", "", { "dependencies": { "@agentic/core": "7.6.5", "ky": "^1.8.1" }, "peerDependencies": { "zod": "^3.25.28" } }, "sha512-WBVoYWeQQ6twSsrpBMZSqLh3jlT6mt7msOSXhQIBrTPOZaIS17GC1m0eTVhztUWcZhLe/Qejv8uyHZm541+sdg=="],
-
-    "@ai-sdk/deepinfra": ["@ai-sdk/deepinfra@1.0.0-canary.19", "", { "dependencies": { "@ai-sdk/openai-compatible": "1.0.0-canary.19", "@ai-sdk/provider": "2.0.0-canary.14", "@ai-sdk/provider-utils": "3.0.0-canary.19" }, "peerDependencies": { "zod": "^3.24.0" } }, "sha512-8mD0OAFHWfzsODK/8O/2rwwlLnC6meeq/PxrzThXP8wtCYXwmAQnQze/L24EdUGtlfYTYz25MUkvsd7Uz0t4Sw=="],
 
     "@ai-sdk/fireworks": ["@ai-sdk/fireworks@1.0.0-canary.19", "", { "dependencies": { "@ai-sdk/openai-compatible": "1.0.0-canary.19", "@ai-sdk/provider": "2.0.0-canary.14", "@ai-sdk/provider-utils": "3.0.0-canary.19" }, "peerDependencies": { "zod": "^3.24.0" } }, "sha512-+xyNoAa8GUBoHwthdj464TgcR0iOxE5+Q+nY6AzR5x7Gzjb7SWqDLHbsTfukzp3ENgy/EAkyU7IVVtz1P8Y79Q=="],
 

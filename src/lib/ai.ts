@@ -1,7 +1,6 @@
 import { getDrizzleDatabase } from '@/db/singleton'
 import { settingsTable } from '@/db/tables'
 import { Model, SaveMessagesFunction } from '@/types'
-import { createDeepInfra } from '@ai-sdk/deepinfra'
 import { createFireworks } from '@ai-sdk/fireworks'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
@@ -89,40 +88,21 @@ export const createModel = async (modelConfig: Model): Promise<LanguageModel> =>
 
       return model as LanguageModel
     }
-    case 'deepinfra': {
-      if (!modelConfig.apiKey) {
-        throw new Error('No API key provided')
-      }
-      const deepinfra = createDeepInfra({
-        apiKey: modelConfig.apiKey,
-      })
-
-      // const model = deepinfra('meta-llama/Meta-Llama-3.1-70B-Instruct')
-      const model = deepinfra(modelConfig.model)
-
-      return model as LanguageModel
-    }
     case 'openai_compatible': {
       if (!modelConfig.url) {
-        throw new Error('No URL provided')
+        throw new Error('No URL provided for OpenAI Compatible provider')
       }
-
-      const { db } = await getDrizzleDatabase()
-      const cloudUrlSetting = await db.select().from(settingsTable).where(eq(settingsTable.key, 'cloud_url')).get()
-      const cloudUrl = (cloudUrlSetting?.value as string) || 'http://localhost:8000'
-
-      const baseURL = modelConfig.url?.includes('{{cloud_url}}') ? modelConfig.url.replace('{{cloud_url}}', cloudUrl) : modelConfig.url
 
       const openaiCompatible = createOpenAICompatible({
         name: 'custom',
-        baseURL,
-        apiKey: modelConfig.apiKey ?? undefined,
+        baseURL: modelConfig.url,
+        apiKey: modelConfig.apiKey || undefined,
       })
+
       return openaiCompatible(modelConfig.model) as LanguageModel
     }
-    default: {
-      throw new Error(`Unsupported model provider: ${modelConfig.provider}`)
-    }
+    default:
+      throw new Error(`Unsupported provider: ${modelConfig.provider}`)
   }
 }
 
@@ -156,25 +136,34 @@ export const aiFetchStreamingResponse = async ({ init, saveMessages, model: mode
     const locationLngResult = await db.select().from(settingsTable).where(eq(settingsTable.key, 'location_lng')).get()
     const preferredNameResult = await db.select().from(settingsTable).where(eq(settingsTable.key, 'preferred_name')).get()
 
-    // Build toolset
-    const toolset: ToolSet = {
-      ...createToolset(tools),
-    }
+    // Check if model supports tool usage (default to true for backward compatibility)
+    const supportsTools = modelConfig.toolUsage !== 0
 
-    // Add MCP tools if persistent client is available
-    if (mcpClients && mcpClients.length > 0) {
-      try {
-        // Collect tools from all enabled MCP clients
-        for (const mcpClient of mcpClients) {
-          const mcpTools = await mcpClient.tools()
-          Object.assign(toolset, mcpTools)
+    // Build toolset only if model supports tools
+    let toolset: ToolSet = {}
+
+    if (supportsTools) {
+      toolset = {
+        ...createToolset(tools),
+      }
+
+      // Add MCP tools if persistent client is available
+      if (mcpClients && mcpClients.length > 0) {
+        try {
+          // Collect tools from all enabled MCP clients
+          for (const mcpClient of mcpClients) {
+            const mcpTools = await mcpClient.tools()
+            Object.assign(toolset, mcpTools)
+          }
+          console.log(`MCP tools loaded successfully from ${mcpClients.length} clients`)
+        } catch (error) {
+          console.error('Failed to load MCP tools:', error)
         }
-        console.log(`MCP tools loaded successfully from ${mcpClients.length} clients`)
-      } catch (error) {
-        console.error('Failed to load MCP tools:', error)
+      } else {
+        console.warn('No MCP clients available, MCP tools will not be included')
       }
     } else {
-      console.warn('No MCP clients available, MCP tools will not be included')
+      console.log('Model does not support tools, skipping tool setup')
     }
 
     const result = streamText({
@@ -188,8 +177,8 @@ export const aiFetchStreamingResponse = async ({ init, saveMessages, model: mode
         },
       }),
       messages: convertToModelMessages(messages),
-      toolCallStreaming: true,
-      tools: toolset,
+      toolCallStreaming: supportsTools,
+      tools: supportsTools ? toolset : undefined,
       // continueUntil: hasToolCall('answer'),
       // continueUntil: maxSteps(5),
     })

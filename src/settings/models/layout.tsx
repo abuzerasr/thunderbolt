@@ -50,7 +50,7 @@ export default function ModelsLayout() {
       </div>
 
       <Select value={modelId || ''} onValueChange={handleModelSelect}>
-        <SelectTrigger className="w-full p-6 py-8" variant="outline">
+        <SelectTrigger className="w-full p-6 py-8">
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center bg-primary text-primary-foreground size-8 rounded-md font-medium">{currentModel?.provider?.[0]?.toUpperCase() || '?'}</div>
             <div className="flex flex-col">
@@ -64,7 +64,6 @@ export default function ModelsLayout() {
               <p className="text-left">
                 {model.provider === 'thunderbolt' && 'Thunderbolt'}
                 {model.provider === 'openai' && 'OpenAI'}
-                {model.provider === 'deepinfra' && 'DeepInfra'}
                 {model.provider === 'fireworks' && 'Fireworks'}
                 {model.provider === 'openai_compatible' && 'OpenAI Compatible'} - {model.model}
               </p>

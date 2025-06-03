@@ -18,5 +18,10 @@ export const migrations: Migration[] = [
     "hash": "0001_striped_elektra",
     "name": "0001_striped_elektra.sql",
     "sql": "ALTER TABLE `models` ADD `enabled` integer DEFAULT 1 NOT NULL;"
+  },
+  {
+    "hash": "0002_add_tool_usage_to_models",
+    "name": "0002_add_tool_usage_to_models.sql",
+    "sql": "ALTER TABLE `models` ADD COLUMN `tool_usage` integer DEFAULT 1 NOT NULL;"
   }
 ];

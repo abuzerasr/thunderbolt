@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -25,13 +26,14 @@ import { z } from 'zod'
 
 interface Model {
   id: string
-  provider: 'openai' | 'fireworks' | 'openai_compatible' | 'deepinfra' | 'thunderbolt'
+  provider: 'openai' | 'fireworks' | 'openai_compatible' | 'thunderbolt'
   name: string
   model: string
   url: string | null
   apiKey: string | null
   isSystem: number | null
   enabled: number
+  toolUsage: number | null
 }
 
 interface AvailableModel {
@@ -43,12 +45,13 @@ interface AvailableModel {
 
 const formSchema = z
   .object({
-    provider: z.enum(['thunderbolt', 'openai', 'deepinfra', 'fireworks', 'openai_compatible']),
+    provider: z.enum(['thunderbolt', 'openai', 'fireworks', 'openai_compatible']),
     name: z.string().min(1, { message: 'Name is required.' }),
     model: z.string().min(1, { message: 'Model name is required.' }),
     customModel: z.string().optional(),
     url: z.string().optional(),
     apiKey: z.string().optional(),
+    toolUsage: z.boolean().default(true),
   })
   .refine(
     (data) => {
@@ -119,6 +122,7 @@ export default function ModelsPage() {
         url: values.url || null,
         isSystem: 0,
         enabled: 1,
+        toolUsage: values.toolUsage ? 1 : 0,
       })
     },
     onSuccess: () => {
@@ -149,6 +153,7 @@ export default function ModelsPage() {
       customModel: '',
       url: '',
       apiKey: '',
+      toolUsage: true,
     },
   })
 
@@ -217,7 +222,8 @@ export default function ModelsPage() {
       }
 
       // Use the same createModel function as the chat
-      const model = await createModel(modelConfig)
+      const modelConfigWithDefaults = { ...modelConfig, toolUsage: 1 }
+      const model = await createModel(modelConfigWithDefaults)
 
       // Test with a minimal prompt - race against timeout
       const { text } = await Promise.race([
@@ -297,10 +303,6 @@ export default function ModelsPage() {
           endpoint = 'https://api.fireworks.ai/inference/v1/models'
           headers = { Authorization: `Bearer ${apiKey}` }
           break
-        case 'deepinfra':
-          endpoint = 'https://api.deepinfra.com/v1/openai/models'
-          headers = { Authorization: `Bearer ${apiKey}` }
-          break
         case 'openai_compatible':
           if (url) {
             // Ensure URL ends with /v1 if not already
@@ -323,9 +325,12 @@ export default function ModelsPage() {
           return
       }
 
-      if (endpoint && apiKey) {
-        const response = await ky.get(endpoint, { headers }).json<{ data: AvailableModel[] }>()
-        setAvailableModels(response.data || [])
+      if (endpoint) {
+        // For OpenAI Compatible, try even without API key, otherwise require API key
+        if (provider === 'openai_compatible' || apiKey) {
+          const response = await ky.get(endpoint, { headers }).json<{ data: AvailableModel[] }>()
+          setAvailableModels(response.data || [])
+        }
       }
     } catch (error) {
       console.error('Failed to fetch models:', error)
@@ -347,6 +352,7 @@ export default function ModelsPage() {
         apiKey: null,
         isSystem: 1,
         enabled: 1,
+        toolUsage: 1,
       })
 
       const { text } = await generateText({
@@ -428,8 +434,6 @@ export default function ModelsPage() {
         return 'Thunderbolt'
       case 'openai':
         return 'OpenAI'
-      case 'deepinfra':
-        return 'DeepInfra'
       case 'fireworks':
         return 'Fireworks'
       case 'openai_compatible':
@@ -478,7 +482,6 @@ export default function ModelsPage() {
                           <SelectContent>
                             <SelectItem value="thunderbolt">Thunderbolt</SelectItem>
                             <SelectItem value="openai">OpenAI</SelectItem>
-                            <SelectItem value="deepinfra">DeepInfra</SelectItem>
                             <SelectItem value="fireworks">Fireworks</SelectItem>
                             <SelectItem value="openai_compatible">OpenAI Compatible</SelectItem>
                           </SelectContent>
@@ -513,7 +516,7 @@ export default function ModelsPage() {
                     name="apiKey"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>API Key</FormLabel>
+                        <FormLabel>API Key{form.watch('provider') === 'openai_compatible' ? ' (Optional)' : ''}</FormLabel>
                         <FormControl>
                           <Input type="password" {...field} placeholder="sk-..." />
                         </FormControl>
@@ -596,7 +599,7 @@ export default function ModelsPage() {
                     name="customModel"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Custom Model ID</FormLabel>
+                        <FormLabel>Model</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
@@ -625,6 +628,25 @@ export default function ModelsPage() {
                           <Input {...field} placeholder="e.g., GPT-4 Turbo" />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Tool Usage Checkbox - Only show when model is selected */}
+                {(form.watch('model') || selectedModelId === 'custom') && (
+                  <FormField
+                    control={form.control}
+                    name="toolUsage"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Enable tool usage</FormLabel>
+                          <p className="text-sm text-muted-foreground">Allow this model to use tools and function calls. Disable if the model doesn't support tools.</p>
+                        </div>
                       </FormItem>
                     )}
                   />

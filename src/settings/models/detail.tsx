@@ -18,7 +18,7 @@ import { Trash2 } from 'lucide-react'
 
 const formSchema = z
   .object({
-    provider: z.enum(['thunderbolt', 'openai', 'fireworks', 'openai_compatible', 'deepinfra']),
+    provider: z.enum(['thunderbolt', 'openai', 'fireworks', 'openai_compatible']),
     name: z.string().min(1, { message: 'Name is required.' }),
     model: z.string().min(1, { message: 'Model name is required.' }),
     url: z.string().optional(),

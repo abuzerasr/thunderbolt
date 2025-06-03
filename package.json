@@ -16,7 +16,6 @@
   "dependencies": {
     "@agentic/ai-sdk": "^7.6.5",
     "@agentic/weather": "^7.6.5",
-    "@ai-sdk/deepinfra": "^1.0.0-alpha.7",
     "@ai-sdk/fireworks": "^1.0.0-alpha.7",
     "@ai-sdk/openai": "^2.0.0-alpha.7",
     "@ai-sdk/openai-compatible": "^1.0.0-alpha.7",

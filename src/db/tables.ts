@@ -93,13 +93,14 @@ export const todosTable = sqliteTable('todos', {
 
 export const modelsTable = sqliteTable('models', {
   id: text('id').primaryKey().notNull().unique(),
-  provider: text('provider', { enum: ['openai', 'fireworks', 'openai_compatible', 'deepinfra', 'thunderbolt'] }).notNull(),
+  provider: text('provider', { enum: ['openai', 'fireworks', 'openai_compatible', 'thunderbolt'] }).notNull(),
   name: text('name').notNull(),
   model: text('model').notNull(),
   url: text('url'),
   apiKey: text('api_key'),
   isSystem: integer('is_system').default(0),
   enabled: integer('enabled').default(1).notNull(),
+  toolUsage: integer('tool_usage').default(1).notNull(),
 })
 
 export const embeddingsTable = sqliteTable('embeddings', {
@@ -140,7 +141,9 @@ export const accountsTable = sqliteTable('accounts', {
 export const mcpServersTable = sqliteTable('mcp_servers', {
   id: text('id').primaryKey().notNull().unique(),
   name: text('name').notNull(),
-  type: text('type', { enum: ['http', 'stdio'] }).notNull().default('http'),
+  type: text('type', { enum: ['http', 'stdio'] })
+    .notNull()
+    .default('http'),
   url: text('url'),
   command: text('command'),
   args: text('args', { mode: 'json' }).$type<string[]>(),

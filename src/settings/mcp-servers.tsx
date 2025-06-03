@@ -44,10 +44,21 @@ export default function McpServersPage() {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const titleRefs = useRef<{ [key: string]: HTMLElement | null }>({})
 
+  // TODO: Add support for stdio servers
   const { data: servers = [] } = useQuery({
     queryKey: ['mcp-servers'],
     queryFn: async (): Promise<McpServer[]> => {
-      return await db.select().from(mcpServersTable)
+      const allServers = await db.select().from(mcpServersTable)
+      return allServers
+        .filter((server) => server.type === 'http' && server.url !== null)
+        .map((server) => ({
+          id: server.id,
+          name: server.name,
+          url: server.url as string,
+          enabled: server.enabled,
+          createdAt: server.createdAt,
+          updatedAt: server.updatedAt,
+        }))
     },
   })
 

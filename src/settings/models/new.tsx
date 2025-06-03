@@ -16,7 +16,7 @@ import { Model } from '@/types'
 
 const formSchema = z
   .object({
-    provider: z.enum(['thunderbolt', 'openai', 'deepinfra', 'fireworks', 'openai_compatible']),
+    provider: z.enum(['thunderbolt', 'openai', 'fireworks', 'openai_compatible']),
     name: z.string().min(1, { message: 'Name is required.' }),
     model: z.string().min(1, { message: 'Model name is required.' }),
     url: z.string().optional(),
@@ -84,6 +84,8 @@ export default function NewModelPage() {
       apiKey: values.apiKey || null,
       url: values.url || null,
       isSystem: 0,
+      enabled: 1,
+      toolUsage: 1,
     })
   }
 
@@ -100,13 +102,12 @@ export default function NewModelPage() {
                   <FormLabel>Provider</FormLabel>
                   <FormControl>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger variant="outline" className="w-full">
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select provider" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="thunderbolt">Thunderbolt</SelectItem>
                         <SelectItem value="openai">OpenAI</SelectItem>
-                        <SelectItem value="deepinfra">DeepInfra</SelectItem>
                         <SelectItem value="fireworks">Fireworks</SelectItem>
                         <SelectItem value="openai_compatible">OpenAI Compatible</SelectItem>
                       </SelectContent>
