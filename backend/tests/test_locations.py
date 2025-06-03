@@ -1,7 +1,9 @@
-"""Tests for locations API endpoint."""
+"""Tests for locations search endpoint."""
 
 import pytest
+import httpx
 from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock
 
 
 class TestLocationsEndpoint:
@@ -16,49 +18,82 @@ class TestLocationsEndpoint:
     def test_locations_endpoint_empty_query(self, client: TestClient) -> None:
         """Test locations endpoint with empty query parameter."""
         response = client.get("/locations?query=")
-        # Empty query should either be treated as invalid or cause a 422
-        assert response.status_code in [400, 422, 503]
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Query parameter is required"
 
-    @pytest.mark.skipif(
-        condition=True, reason="Integration test - requires valid WeatherAPI key"
-    )
-    def test_locations_endpoint_with_real_api(self, client: TestClient) -> None:
-        """Test locations search endpoint with real API (when API key is configured)."""
-        response = client.get("/locations?query=London")
-        if response.status_code == 503:
-            pytest.skip("Weather API key not configured")
+    def test_locations_endpoint_success(self, client: TestClient) -> None:
+        """Test successful location search."""
+        mock_response = {
+            "results": [
+                {
+                    "name": "London",
+                    "admin1": "England",
+                    "country": "United Kingdom",
+                    "latitude": 51.5074,
+                    "longitude": -0.1278,
+                },
+                {
+                    "name": "London",
+                    "admin1": "Ontario",
+                    "country": "Canada",
+                    "latitude": 42.9834,
+                    "longitude": -81.2497,
+                },
+            ]
+        }
 
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) > 0
-        assert data[0]["name"] == "London"
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response_obj = MagicMock()
+            mock_response_obj.json.return_value = mock_response
+            mock_response_obj.raise_for_status.return_value = None
 
-    def test_locations_endpoint_responds_with_json(self, client: TestClient) -> None:
-        """Test that locations endpoint returns JSON response."""
-        response = client.get("/locations?query=London")
-        # Should return JSON regardless of success/failure
-        assert response.headers["content-type"].startswith("application/json")
+            mock_client.return_value.__aenter__.return_value.get.return_value = (
+                mock_response_obj
+            )
 
-    def test_locations_endpoint_invalid_query(self, client: TestClient) -> None:
-        """Test locations endpoint with obviously invalid query."""
-        response = client.get("/locations?query=InvalidLocation123XYZ987NonExistent")
-        # Will either return empty list, 400 (invalid query) or 503 (no API key)
-        assert response.status_code in [200, 400, 503]
-        if response.status_code == 200:
+            response = client.get("/locations?query=London")
+
+            assert response.status_code == 200
             data = response.json()
             assert isinstance(data, list)
-            # Should return empty list for non-existent locations
+            assert len(data) == 2
+
+            # Check first result
+            assert data[0]["name"] == "London"
+            assert data[0]["region"] == "England"
+            assert data[0]["country"] == "United Kingdom"
+            assert data[0]["lat"] == 51.5074
+            assert data[0]["lon"] == -0.1278  # Note: frontend expects 'lon' not 'lng'
+
+    def test_locations_endpoint_no_results(self, client: TestClient) -> None:
+        """Test location search with no results."""
+        mock_response = {"results": []}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response_obj = MagicMock()
+            mock_response_obj.json.return_value = mock_response
+            mock_response_obj.raise_for_status.return_value = None
+
+            mock_client.return_value.__aenter__.return_value.get.return_value = (
+                mock_response_obj
+            )
+
+            response = client.get("/locations?query=InvalidLocationXYZ")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, list)
             assert len(data) == 0
 
-    def test_locations_endpoint_special_characters(self, client: TestClient) -> None:
-        """Test locations endpoint with special characters in query."""
-        response = client.get("/locations?query=São Paulo")
-        # Should handle special characters gracefully
-        assert response.status_code in [200, 400, 503]
+    def test_locations_endpoint_service_error(self, client: TestClient) -> None:
+        """Test location search when geocoding service fails."""
+        with patch("httpx.AsyncClient") as mock_client:
+            # Simulate HTTP error
+            mock_client.return_value.__aenter__.return_value.get.side_effect = (
+                httpx.RequestError("Connection failed")
+            )
 
-    def test_locations_endpoint_numeric_query(self, client: TestClient) -> None:
-        """Test locations endpoint with numeric query."""
-        response = client.get("/locations?query=12345")
-        # Should handle numeric queries gracefully
-        assert response.status_code in [200, 400, 503]
+            response = client.get("/locations?query=London")
+
+            assert response.status_code == 503
+            assert response.json()["detail"] == "Geocoding service unavailable"

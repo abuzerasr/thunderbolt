@@ -137,7 +137,11 @@ class ProxyService:
         return query_params
 
     async def proxy_streaming_request(
-        self, request: Request, path: str, config: ProxyConfig, body: bytes | None = None
+        self,
+        request: Request,
+        path: str,
+        config: ProxyConfig,
+        body: bytes | None = None,
     ) -> StreamingResponse:
         """Proxy a streaming request to the target URL"""
 
@@ -165,7 +169,9 @@ class ProxyService:
                 body = config.request_transformer(body)
             except Exception as e:
                 logger.error(f"Request transformation failed: {e}")
-                raise HTTPException(status_code=400, detail="Invalid request format") from e
+                raise HTTPException(
+                    status_code=400, detail="Invalid request format"
+                ) from e
 
         try:
             # Make the proxied request with streaming
@@ -250,7 +256,9 @@ class ProxyService:
                 body = config.request_transformer(body)
             except Exception as e:
                 logger.error(f"Request transformation failed: {e}")
-                raise HTTPException(status_code=400, detail="Invalid request format") from e
+                raise HTTPException(
+                    status_code=400, detail="Invalid request format"
+                ) from e
 
         try:
             # Make the proxied request

@@ -1,8 +1,6 @@
 import { getDrizzleDatabase } from '@/db/singleton'
 import { settingsTable } from '@/db/tables'
-import { getOrCreateWeatherClient } from '@/extensions/weather/tools'
 import { Model, SaveMessagesFunction } from '@/types'
-import { createAISDKTools } from '@agentic/ai-sdk'
 import { createDeepInfra } from '@ai-sdk/deepinfra'
 import { createFireworks } from '@ai-sdk/fireworks'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -158,12 +156,9 @@ export const aiFetchStreamingResponse = async ({ init, saveMessages, model: mode
     const locationLngResult = await db.select().from(settingsTable).where(eq(settingsTable.key, 'location_lng')).get()
     const preferredNameResult = await db.select().from(settingsTable).where(eq(settingsTable.key, 'preferred_name')).get()
 
-    const weatherClient = await getOrCreateWeatherClient()
-
     // Build toolset
     const toolset: ToolSet = {
       ...createToolset(tools),
-      ...createAISDKTools(weatherClient),
     }
 
     // Add MCP tools if persistent client is available

@@ -9,44 +9,6 @@ type toolContext = {
 }
 
 export const tools = {
-  getForecast: {
-    verb: 'Checking the weather...',
-    tool: ({ settings }: toolContext) =>
-      tool({
-        description: 'Get the weather forecast.',
-        parameters: z.object({
-          // location: z.string().describe('The location to get the weather forecast for.').optional(),
-        }),
-        execute: async () => {
-          try {
-            let url = 'https://api.open-meteo.com/v1/forecast?hourly=temperature_2m,precipitation,cloud_cover'
-
-            // Get location from settings if available
-            const locationLat = settings.find((s) => s.key === 'location_lat')?.value
-            const locationLng = settings.find((s) => s.key === 'location_lng')?.value
-
-            if (locationLat && locationLng) {
-              url = `${url}&latitude=${locationLat}&longitude=${locationLng}`
-            } else {
-              // Fallback to default coordinates if no settings found
-              url = `${url}&latitude=52.52&longitude=13.41`
-            }
-
-            const response = await fetch(url)
-            if (!response.ok) {
-              throw new Error(`Weather API returned ${response.status}: ${response.statusText}`)
-            }
-            const forecast = await response.json()
-
-            console.log('forecast', forecast)
-            return forecast
-          } catch (error) {
-            console.error('Error fetching weather forecast:', error)
-            throw new Error('Failed to get weather forecast')
-          }
-        },
-      }),
-  },
   searchInbox: {
     verb: 'Searching the inbox...',
     tool: ({ settings }: toolContext) =>
