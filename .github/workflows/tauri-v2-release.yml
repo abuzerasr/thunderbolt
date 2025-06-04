@@ -50,7 +50,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
-          cache: true
+          cache-workspaces: src-tauri
+          rustflags: ""
 
       - name: Install sccache
         run: cargo install sccache
@@ -108,7 +109,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
-          cache: true
+          cache-workspaces: src-tauri
+          rustflags: ""
 
       - name: Install sccache
         run: cargo install sccache
@@ -173,7 +175,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
-          cache: true
+          cache-workspaces: src-tauri
+          rustflags: ""
 
       - name: Install sccache
         run: cargo install sccache
