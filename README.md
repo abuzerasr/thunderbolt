@@ -1,6 +1,8 @@
 # Thunderbolt
 ***(Formerly known as Mozilla Assist(ant))***
 
+[![CI](https://github.com/thunderbird/thunderbolt/actions/workflows/ci.yml/badge.svg)](https://github.com/thunderbird/thunderbolt/actions/workflows/ci.yml)
+
 ![Thunderbolt Main Dashboard](./docs/screenshots/main.png)
 ![Thunderbolt Chat](./docs/screenshots/chat.png)
 
