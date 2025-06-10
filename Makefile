@@ -1,4 +1,4 @@
-.PHONY: help install build build-desktop build-android build-ios clean
+.PHONY: help install build build-desktop build-android build-ios clean lint format format-check type-check test check
 
 # Default target
 help:
@@ -9,6 +9,12 @@ help:
 	@echo "  make build-android  - Build Tauri Android app"
 	@echo "  make build-ios      - Build Tauri iOS app"
 	@echo "  make clean          - Clean build artifacts"
+	@echo "  make lint           - Run linter on source files"
+	@echo "  make format         - Format source files"
+	@echo "  make format-check   - Check if source files are formatted"
+	@echo "  make type-check     - Run TypeScript type checking"
+	@echo "  make test           - Run tests"
+	@echo "  make check          - Run all checks (type-check, lint, format-check)"
 
 # Install dependencies
 install:
@@ -47,4 +53,30 @@ build-ios:
 clean:
 	rm -rf dist/
 	rm -rf src-tauri/target/
-	rm -rf node_modules/ 
+	rm -rf node_modules/
+
+# Linting
+lint:
+	bun run lint
+
+lint-fix:
+	bun run lint:fix
+
+# Formatting
+format:
+	bun run format
+
+format-check:
+	bun run format-check
+
+# Type checking
+type-check:
+	bun run type-check
+
+# Run tests
+test:
+	bun run test
+
+# Run all checks
+check:
+	bun run check

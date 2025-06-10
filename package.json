@@ -11,7 +11,14 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "analyze": "vite analyze",
-    "db": "drizzle-kit"
+    "db": "drizzle-kit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format-check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "type-check": "tsc --noEmit",
+    "test": "echo 'No tests configured yet'",
+    "check": "bun run type-check && bun run lint && bun run format-check"
   },
   "dependencies": {
     "@agentic/ai-sdk": "^7.6.5",
@@ -78,14 +85,22 @@
     "zod": "^3.25.51"
   },
   "devDependencies": {
+    "@eslint/js": "^9.28.0",
     "@libsql/client": "^0.15.8",
     "@tauri-apps/cli": "^2.5.0",
     "@types/node": "^22.15.30",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
     "@vitejs/plugin-react": "^4.5.1",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.1",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "type-fest": "^4.41.0",
     "typescript": "~5.8.3",
