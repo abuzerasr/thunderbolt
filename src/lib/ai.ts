@@ -221,8 +221,8 @@ export const aiFetchStreamingResponse = async ({ init, saveMessages, model: mode
         preferredName: preferredNameResult?.value as string,
         location: {
           name: locationNameResult?.value as string,
-          lat: parseFloat(locationLatResult?.value as string),
-          lng: parseFloat(locationLngResult?.value as string),
+          lat: locationLatResult?.value ? (typeof locationLatResult.value === 'number' ? locationLatResult.value : parseFloat(locationLatResult.value as string)) : undefined,
+          lng: locationLngResult?.value ? (typeof locationLngResult.value === 'number' ? locationLngResult.value : parseFloat(locationLngResult.value as string)) : undefined,
         },
       }),
       messages: convertToModelMessages(messages),
