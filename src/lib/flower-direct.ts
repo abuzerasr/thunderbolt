@@ -45,8 +45,9 @@ export async function initializeFlowerIntelligence(): Promise<any> {
   try {
     if (!flowerInstance) {
       // Use eval to avoid TypeScript compile-time module resolution
-       
-      const { FlowerIntelligence } = await (eval('import("../../flower/intelligence/ts/dist/flowerintelligence.es.js")') as Promise<any>)
+      // In production, this will load from the public directory
+      const moduleUrl = '/flower/intelligence/ts/dist/flowerintelligence.es.js'
+      const { FlowerIntelligence } = await (eval(`import("${moduleUrl}")`) as Promise<any>)
       flowerInstance = (FlowerIntelligence as any).instance
     }
 

@@ -4,6 +4,8 @@ import path from 'path'
 import { defineConfig } from 'vite'
 import { analyzer } from 'vite-bundle-analyzer'
 import { bundleMigrations } from './src/db/bundle-migrations'
+import { execSync } from 'child_process'
+import fs from 'fs'
 
 const host = process.env.TAURI_DEV_HOST
 
@@ -17,6 +19,32 @@ export default defineConfig({
           migrationsDir: path.resolve(__dirname, 'src/drizzle'),
           outputFile: path.resolve(__dirname, 'src/drizzle/_migrations.ts'),
         })
+      },
+    },
+    {
+      name: 'build-flower-intelligence',
+      async buildStart() {
+        console.log('🌸 Building Flower Intelligence...')
+        
+        // Run the build script
+        execSync('./scripts/build-flower.sh', { stdio: 'inherit' })
+        
+        const flowerDistFile = path.resolve(__dirname, 'flower/intelligence/ts/dist/flowerintelligence.es.js')
+        
+        // Create public directory structure
+        const publicFlowerDir = path.resolve(__dirname, 'public/flower/intelligence/ts/dist')
+        fs.mkdirSync(publicFlowerDir, { recursive: true })
+        
+        // Copy the built file to public directory
+        if (fs.existsSync(flowerDistFile)) {
+          fs.copyFileSync(
+            flowerDistFile,
+            path.resolve(publicFlowerDir, 'flowerintelligence.es.js')
+          )
+          console.log('✅ Flower Intelligence built and copied to public directory')
+        } else {
+          throw new Error('Flower Intelligence build failed - flowerintelligence.es.js not found')
+        }
       },
     },
     tailwindcss(),
