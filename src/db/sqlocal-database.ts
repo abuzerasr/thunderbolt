@@ -26,6 +26,10 @@ export class SQLocalDatabase implements DatabaseInterface {
 
     const { driver } = this.sqlocalDrizzle
     this._db = drizzle(driver, { schema })
+
+    if (path === ':memory:') {
+      console.warn('SQLocalDatabase initialized with in-memory database')
+    }
   }
 
   async close(): Promise<void> {

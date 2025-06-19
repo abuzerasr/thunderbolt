@@ -1,5 +1,6 @@
 import { isTauri as isTauriCore } from '@tauri-apps/api/core'
 import { platform, type Platform } from '@tauri-apps/plugin-os'
+import type { DatabaseType } from '../db/singleton'
 
 /**
  * Detects if the app is running in a Tauri environment
@@ -33,4 +34,61 @@ export const isDesktop = (): boolean => {
 export const isMobile = (): boolean => {
   const currentPlatform = getPlatform()
   return currentPlatform === 'ios' || currentPlatform === 'android'
+}
+
+/**
+ * Checks if OPFS (Origin Private File System) is available
+ * OPFS is not available in private/incognito browsing modes
+ * @returns Promise<boolean> - true if OPFS is available, false otherwise
+ */
+export const isOpfsAvailable = async (): Promise<boolean> => {
+  try {
+    // Check if the browser supports the necessary APIs
+    if (!('storage' in navigator) || !('getDirectory' in navigator.storage)) {
+      return false
+    }
+
+    // Try to access OPFS - this will fail in private browsing
+    const root = await navigator.storage.getDirectory()
+    
+    // Try to create a test file to ensure write access
+    const testFileName = `opfs-test-${Date.now()}.txt`
+    await root.getFileHandle(testFileName, { create: true })
+    
+    // Clean up test file
+    await root.removeEntry(testFileName)
+    
+    return true
+  } catch (error) {
+    console.warn('OPFS is not available:', error)
+    return false
+  }
+}
+
+/**
+ * Determines the appropriate database type based on the platform
+ * @returns The database type to use
+ */
+export const getDatabaseType = (): DatabaseType => {
+  return isTauri() ? 'libsql-tauri' : 'sqlocal'
+}
+
+/**
+ * Determines the appropriate database path based on platform and OPFS availability
+ * @param databaseType - The type of database being used
+ * @param appDataDirPath - The application data directory path
+ * @returns The database path to use
+ */
+export const getDatabasePath = async (databaseType: DatabaseType, appDataDirPath: string): Promise<string> => {
+  if (databaseType !== 'sqlocal') {
+    return `${appDataDirPath}/thunderbolt.db`
+  }
+
+  const opfsAvailable = await isOpfsAvailable()
+  if (opfsAvailable) {
+    return `${appDataDirPath}/thunderbolt.db`
+  }
+
+  console.warn('OPFS not available (likely private browsing), using in-memory database')
+  return ':memory:'
 }

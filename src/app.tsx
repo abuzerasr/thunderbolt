@@ -24,7 +24,7 @@ import { ImapProvider } from './imap/provider'
 import Layout from './layout'
 import { createAppDataDir } from './lib/fs'
 import { MCPProvider } from './lib/mcp-provider'
-import { isTauri } from './lib/platform'
+import { getDatabasePath, getDatabaseType } from './lib/platform'
 import { TrayManager, TrayProvider } from './lib/tray'
 import Loading from './loading'
 import SettingsLayout from './settings/layout'
@@ -69,11 +69,12 @@ function AppContent({ initData }: { initData: InitData }) {
 
 const init = async (): Promise<InitData> => {
   const appDataDirPath = await createAppDataDir()
-
-  const databaseType = isTauri() ? 'libsql-tauri' : 'sqlocal'
+  const databaseType = getDatabaseType()
+  const dbPath = await getDatabasePath(databaseType, appDataDirPath)
+  
   const db = await DatabaseSingleton.instance.initialize({
     type: databaseType,
-    path: `${appDataDirPath}/thunderbolt.db`,
+    path: dbPath,
   })
 
   await migrate(db)
