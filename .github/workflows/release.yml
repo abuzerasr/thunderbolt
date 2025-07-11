@@ -126,7 +126,7 @@ jobs:
         if: matrix.os == 'windows-latest' && matrix.target == 'x86_64-pc-windows-msvc'
         run: |
           bun install
-          bun tauri build --bundles msi,nsis --target x86_64-pc-windows-msvc -- --features native_fetch
+          bun tauri build --bundles msi,nsis --target x86_64-pc-windows-msvc -- --no-default-features --features native_fetch
         env:
           RUSTFLAGS: ''
           CARGO_INCREMENTAL: 0
@@ -142,7 +142,7 @@ jobs:
           rustup target add aarch64-pc-windows-msvc
           # Build for ARM64
           bun install
-          bun tauri build --bundles msi,nsis --target aarch64-pc-windows-msvc -- --features native_fetch
+          bun tauri build --bundles msi,nsis --target aarch64-pc-windows-msvc -- --no-default-features --features native_fetch
         env:
           RUSTFLAGS: ''
           CARGO_INCREMENTAL: 0
