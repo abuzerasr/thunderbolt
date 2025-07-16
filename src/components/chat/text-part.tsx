@@ -8,7 +8,7 @@ interface TextPartProps {
 
 export const TextPart = ({ part, isStreaming }: TextPartProps) => {
   return (
-    <div className="space-y-2 p-4 rounded-md bg-secondary mr-auto w-full">
+    <div className="p-4 rounded-md mr-auto w-full my-2">
       <StreamingMarkdown
         content={(part as any).text || ''}
         isStreaming={isStreaming}

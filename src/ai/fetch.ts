@@ -3,10 +3,10 @@ import { modelsTable } from '@/db/tables'
 import { getSetting } from '@/lib/dal'
 import { Model, SaveMessagesFunction } from '@/types'
 import { createOpenAI } from '@ai-sdk/openai'
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createOpenAICompatible, type OpenAICompatibleProviderOptions } from '@ai-sdk/openai-compatible'
 // import { createOpenRouter } from '@openrouter/ai-sdk-provider' // TODO: Use when AI SDK v2 branch is stable
-
 import { stripTagsMiddleware } from '@/ai/middleware/strip-tags'
+import { toolCallsMiddleware } from '@/ai/middleware/tool-calls'
 import { createPrompt } from '@/ai/prompt'
 import { getCloudUrl } from '@/lib/config'
 import { fetch } from '@/lib/fetch'
@@ -50,11 +50,11 @@ export const createModel = async (modelConfig: Model): Promise<LanguageModel> =>
     case 'thunderbolt': {
       const cloudUrl = await getCloudUrl()
       const openaiCompatible = createOpenAICompatible({
-        name: 'custom',
+        name: 'thunderbolt',
         baseURL: `${cloudUrl}/openai`,
         fetch,
       })
-      return openaiCompatible(modelConfig.model) as LanguageModel
+      return openaiCompatible(modelConfig.model)
     }
     case 'openai': {
       if (!modelConfig.apiKey) throw new Error('No API key provided')
@@ -72,7 +72,7 @@ export const createModel = async (modelConfig: Model): Promise<LanguageModel> =>
         apiKey: modelConfig.apiKey || undefined,
         fetch,
       })
-      return openaiCompatible(modelConfig.model) as LanguageModel
+      return openaiCompatible(modelConfig.model)
     }
     case 'openrouter': {
       if (!modelConfig.apiKey) throw new Error('No API key provided')
@@ -84,7 +84,7 @@ export const createModel = async (modelConfig: Model): Promise<LanguageModel> =>
         apiKey: modelConfig.apiKey,
         fetch,
       })
-      return openrouter(modelConfig.model) as LanguageModel
+      return openrouter(modelConfig.model)
     }
     default:
       throw new Error(`Unsupported provider: ${modelConfig.provider}`)
@@ -97,82 +97,104 @@ export const aiFetchStreamingResponse = async ({
   modelId,
   mcpClients,
 }: AiFetchStreamingResponseOptions) => {
-  try {
-    const options = init as RequestInit & { body: string }
-    const body = JSON.parse(options.body)
-    const abortSignal: AbortSignal | undefined = options.signal ?? undefined
+  const options = init as RequestInit & { body: string }
+  const body = JSON.parse(options.body)
+  const abortSignal: AbortSignal | undefined = options.signal ?? undefined
 
-    const { messages, chatId } = body as { messages: UIMessage[]; chatId: string }
+  const { messages, chatId } = body as { messages: UIMessage[]; chatId: string }
 
-    await saveMessages({ id: chatId, messages })
+  await saveMessages({ id: chatId, messages })
 
-    const db = DatabaseSingleton.instance.db
+  const db = DatabaseSingleton.instance.db
 
-    const locationName = await getSetting<string>('location_name')
-    const locationLat = await getSetting<string>('location_lat')
-    const locationLng = await getSetting<string>('location_lng')
-    const preferredName = await getSetting<string>('preferred_name')
+  const locationName = await getSetting<string>('location_name')
+  const locationLat = await getSetting<string>('location_lat')
+  const locationLng = await getSetting<string>('location_lng')
+  const preferredName = await getSetting<string>('preferred_name')
 
-    const model = await db.query.modelsTable.findFirst({
-      where: eq(modelsTable.id, modelId),
-    })
+  const model = await db.query.modelsTable.findFirst({
+    where: eq(modelsTable.id, modelId),
+  })
 
-    if (!model) throw new Error('Model not found')
+  if (!model) throw new Error('Model not found')
 
-    const supportsTools = model.toolUsage !== 0
+  const supportsTools = model.toolUsage !== 0
 
-    let toolset: ToolSet = {}
-    if (supportsTools) {
-      const availableTools = await getAvailableTools()
-      toolset = { ...createToolset(availableTools) }
+  let toolset: ToolSet = {}
+  if (supportsTools) {
+    const availableTools = await getAvailableTools()
+    toolset = { ...createToolset(availableTools) }
 
-      for (const mcpClient of mcpClients || []) {
-        const mcpTools = await mcpClient.tools()
-        Object.assign(toolset, mcpTools)
-      }
-    } else {
-      console.log('Model does not support tools, skipping tool setup')
+    for (const mcpClient of mcpClients || []) {
+      const mcpTools = await mcpClient.tools()
+      Object.assign(toolset, mcpTools)
     }
-
-    const systemPrompt = createPrompt({
-      preferredName: preferredName as string,
-      location: {
-        name: locationName as string,
-        lat: locationLat ? parseFloat(locationLat as string) : undefined,
-        lng: locationLng ? parseFloat(locationLng as string) : undefined,
-      },
-    })
-
-    // Flower is a special case that uses a custom SDK that is not compatible with the Vercel AI SDK.
-    if (model.provider === 'flower') {
-      const tools = model.toolUsage === 1 ? await getAvailableTools() : undefined
-      return handleFlowerChatStream({ messages, systemPrompt, model: model.model, tools })
-    }
-
-    const baseModel = await createModel(model)
-
-    const wrappedModel = wrapLanguageModel({
-      model: baseModel,
-      middleware: [stripTagsMiddleware, extractReasoningMiddleware({ tagName: 'think' })],
-    })
-
-    const result = streamText({
-      model: wrappedModel,
-      system: systemPrompt,
-      messages: convertToModelMessages(messages),
-      toolCallStreaming: supportsTools,
-      tools: supportsTools ? toolset : undefined,
-      maxSteps: 10,
-      abortSignal,
-    })
-
-    return result.toUIMessageStreamResponse({
-      sendReasoning: true,
-      // Attach the modelId as metadata so the client knows which model was used
-      messageMetadata: () => ({ modelId }),
-    })
-  } catch (error) {
-    console.error('Error in aiFetchStreamingResponse:', error)
-    throw error
+  } else {
+    console.log('Model does not support tools, skipping tool setup')
   }
+
+  const systemPrompt = createPrompt({
+    preferredName: preferredName as string,
+    location: {
+      name: locationName as string,
+      lat: locationLat ? parseFloat(locationLat as string) : undefined,
+      lng: locationLng ? parseFloat(locationLng as string) : undefined,
+    },
+  })
+
+  // Flower is a special case that uses a custom SDK that is not compatible with the Vercel AI SDK.
+  if (model.provider === 'flower') {
+    const tools = model.toolUsage === 1 ? await getAvailableTools() : undefined
+    return handleFlowerChatStream({ messages, systemPrompt, model: model.model, tools })
+  }
+
+  const baseModel = await createModel(model)
+
+  const wrappedModel = wrapLanguageModel({
+    providerId: model.provider,
+    model: baseModel,
+    middleware: [stripTagsMiddleware, toolCallsMiddleware, extractReasoningMiddleware({ tagName: 'think' })],
+  })
+
+  const result = streamText({
+    temperature: 0.25,
+    model: wrappedModel,
+    system: systemPrompt,
+    messages: convertToModelMessages(messages),
+    toolCallStreaming: supportsTools,
+    tools: supportsTools ? toolset : undefined,
+    maxSteps: 10,
+    abortSignal,
+    providerOptions: {
+      custom: {
+        // reasoningEffort: 'low',
+      } satisfies OpenAICompatibleProviderOptions,
+    },
+    onStepFinish: (_step) => {
+      // console.log('step', {
+      //   text: step.text,
+      //   finishReason: step.finishReason,
+      //   toolCallCount: step.toolCalls?.length || 0,
+      // })
+    },
+    onFinish: (_finish) => {
+      // console.log('finish', {
+      //   text: finish.text,
+      //   finishReason: finish.finishReason,
+      //   toolCallCount: finish.toolCalls?.length || 0,
+      // })
+    },
+    onError: (error) => {
+      console.error('error', error)
+    },
+    onChunk: () => {
+      // console.log('chunk', chunk)
+    },
+  })
+
+  return result.toUIMessageStreamResponse({
+    sendReasoning: true,
+    // Attach the modelId as metadata so the client knows which model was used
+    messageMetadata: () => ({ modelId }),
+  })
 }

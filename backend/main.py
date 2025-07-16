@@ -25,11 +25,10 @@ def get_settings() -> Settings:
 
 # Global whitelist of Thunderbolt-provided model names (provider-agnostic)
 THUNDERBOLT_MODEL_WHITELIST = {
-    "llama-v3p1-70b-instruct",
-    "llama-v3p1-405b-instruct",
+    "kimi-k2-instruct",
+    "deepseek-r1-0528",
     "qwen3-235b-a22b",
-    "qwen2p5-72b-instruct",
-    # "deepseek-r1-0528", # @todo suffering from a bug where it just stops after awhile during reasoning when tool calling.
+    "llama-v3p1-405b-instruct",
 }
 
 

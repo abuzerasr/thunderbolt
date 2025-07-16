@@ -128,3 +128,16 @@ body {
     overflow: hidden;
   }
 }
+
+/* Subtle table borders for markdown content */
+.prose-sm th {
+  @apply border-b border-muted-foreground/20;
+}
+
+.prose-sm td {
+  @apply border-b border-muted-foreground/16;
+}
+
+.prose-sm tr:last-child td {
+  @apply border-b-0;
+}

@@ -18,10 +18,9 @@ export const SyntheticLoadingPart = ({ message = '', isStreaming }: SyntheticLoa
   return (
     <Expandable
       title={titleNode}
-      bgColor="bg-secondary"
       defaultOpen={false}
       icon={<Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />}
-      className="pointer-events-none" // Prevent clicking while loading
+      className="shadow-none pointer-events-none" // Prevent clicking while loading
     >
       {null}
     </Expandable>

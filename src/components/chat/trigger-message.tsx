@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { MessageSquareText } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { Expandable } from '../ui/expandable'
 import { StreamingMarkdown } from './streaming-markdown'
 
@@ -37,13 +37,10 @@ export const TriggerMessage = ({ title, prompt, className }: TriggerMessageProps
     {/* Accordion with automation title & prompt */}
     <Expandable
       title={
-        <span className="text-secondary-foreground text-sm font-medium whitespace-pre-wrap">
-          {title || 'Automation'}
-        </span>
+        <span className="text-muted-foreground text-sm font-medium whitespace-pre-wrap">{title || 'Automation'}</span>
       }
-      bgColor="bg-secondary"
-      className="w-full max-w-[696px]"
-      icon={<MessageSquareText className="h-4 w-4 text-secondary-foreground" />}
+      className="shadow-none w-full max-w-[696px]"
+      icon={<Zap className="h-4 w-4 text-secondary-foreground" />}
       defaultOpen={false}
     >
       <StreamingMarkdown content={prompt} className="text-secondary-foreground leading-relaxed" />

@@ -26,10 +26,28 @@ export const seedModels = async () => {
     const seedData = [
       {
         id: uuidv7(),
+        name: 'Kimi K2',
+        provider: 'thunderbolt' as const,
+        model: 'kimi-k2-instruct',
+        isSystem: 1,
+        enabled: 1,
+        isConfidential: 0,
+      },
+      {
+        id: uuidv7(),
+        name: 'DeepSeek R1 0528',
+        provider: 'thunderbolt' as const,
+        model: 'deepseek-r1-0528',
+        isSystem: 0,
+        enabled: 1,
+        isConfidential: 0,
+      },
+      {
+        id: uuidv7(),
         name: 'Qwen 3 235B',
         provider: 'thunderbolt' as const,
         model: 'qwen3-235b-a22b',
-        isSystem: 1,
+        isSystem: 0,
         enabled: 1,
         isConfidential: 0,
       },
@@ -42,14 +60,6 @@ export const seedModels = async () => {
         enabled: 1,
         isConfidential: 0,
       },
-      // {
-      //   id: uuidv7(),
-      //   name: 'DeepSeek R1 671B',
-      //   provider: 'thunderbolt' as const,
-      //   model: 'deepseek-r1-0528',
-      //   isSystem: 0,
-      //   enabled: 1,
-      // },
     ]
     for (const model of seedData) {
       await db.insert(modelsTable).values(model)

@@ -10,8 +10,8 @@ interface ReasoningPartProps {
 export const ReasoningPart = ({ part, isStreaming }: ReasoningPartProps) => {
   return (
     <Expandable
-      title={<span className="text-secondary-foreground">Reasoning</span>}
-      bgColor="bg-secondary"
+      title={<span className="text-muted-foreground">Thinking</span>}
+      className="shadow-none"
       icon={
         isStreaming ? (
           <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
@@ -21,7 +21,7 @@ export const ReasoningPart = ({ part, isStreaming }: ReasoningPartProps) => {
       }
       defaultOpen={false}
     >
-      <div className="text-secondary-foreground leading-relaxed text-sm">{part.text}</div>
+      <div className="text-muted-foreground leading-relaxed text-sm">{part.text}</div>
     </Expandable>
   )
 }

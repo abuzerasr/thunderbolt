@@ -104,7 +104,7 @@ export const ToolInvocationPart = ({ part }: ToolInvocationPartProps) => {
 
   const titleNode = (
     <div className="flex items-center gap-3 min-w-0">
-      <span className="font-medium text-sm truncate text-secondary-foreground">{metadata.displayName}</span>
+      <span className="font-medium text-sm truncate text-muted-foreground">{metadata.displayName}</span>
       {status === 'running' && (
         <span className="text-xs text-blue-600 dark:text-blue-400 italic animate-pulse">{metadata.loadingMessage}</span>
       )}
@@ -113,8 +113,7 @@ export const ToolInvocationPart = ({ part }: ToolInvocationPartProps) => {
 
   return (
     <Expandable
-      bgColor="bg-secondary"
-      className="tool-invocation-card rounded-lg overflow-hidden transition-colors"
+      className="shadow-none tool-invocation-card rounded-lg overflow-hidden transition-colors"
       icon={getToolIcon(status)}
       defaultOpen={false}
       title={titleNode}

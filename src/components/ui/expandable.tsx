@@ -27,7 +27,7 @@ export type ExpandableProps = {
 export const Expandable = ({
   title,
   children,
-  bgColor = 'bg-white',
+  bgColor,
   defaultOpen = false,
   className,
   onToggle,
@@ -47,21 +47,26 @@ export const Expandable = ({
       collapsible
       value={isOpen ? 'item' : ''}
       onValueChange={handleValueChange}
-      className={cn('rounded-lg shadow-sm', bgColor, className)}
+      className={cn(
+        'rounded-lg shadow-sm border',
+        isOpen ? 'border-border mb-2' : 'border-transparent',
+        bgColor,
+        className,
+      )}
     >
       <AccordionPrimitive.Item value="item" className="border-none">
         <AccordionPrimitive.Header className="flex">
           <AccordionPrimitive.Trigger
             className={cn(
-              'flex flex-1 items-center justify-between gap-2 px-4 py-2.5 text-left transition-all outline-none',
-              'hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'flex flex-1 items-center justify-between gap-2 px-4 py-2 text-left transition-all outline-none',
+              'hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               'rounded-lg data-[state=open]:rounded-b-none',
               'disabled:pointer-events-none disabled:opacity-50',
             )}
           >
             <div className={cn('flex items-center', icon ? 'gap-2' : '')}>
               {icon}
-              <span className="text-sm font-medium text-gray-700">{title}</span>
+              <span className="text-sm font-medium text-muted-foreground">{title}</span>
             </div>
             <ChevronRight
               className={cn('h-4 w-4 text-gray-500 transition-transform duration-200', isOpen && 'rotate-90')}

@@ -471,11 +471,10 @@ export default function ModelsPage() {
           break
         case 'thunderbolt':
           const thunderboltModels = [
-            { id: 'llama-v3p1-70b-instruct', name: 'Llama 3.1 70B', supports_tools: true },
-            { id: 'llama-v3p1-405b-instruct', name: 'Llama 3.1 405B', supports_tools: true },
+            { id: 'kimi-k2-instruct', name: 'Kimi K2', supports_tools: true },
+            { id: 'deepseek-r1-0528', name: 'DeepSeek R1 671B', supports_tools: true },
             { id: 'qwen3-235b-a22b', name: 'Qwen 3 235B', supports_tools: true },
-            { id: 'qwen2p5-72b-instruct', name: 'Qwen 2.5 72B', supports_tools: true },
-            // { id: 'deepseek-r1-0528', name: 'DeepSeek R1 671B' },
+            { id: 'llama-v3p1-405b-instruct', name: 'Llama 3.1 405B', supports_tools: true },
           ]
           dispatch({ type: 'FETCH_MODELS_SUCCESS', models: thunderboltModels })
           return

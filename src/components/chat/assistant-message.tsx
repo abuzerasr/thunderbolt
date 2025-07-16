@@ -41,7 +41,7 @@ export const AssistantMessage = ({ message, isStreaming }: AssistantMessageProps
   })
 
   return (
-    <div className="space-y-2">
+    <div>
       {partElements.map((part, index) => (
         <div key={index} className={index === 1 ? '' : animationClasses}>
           {part}
