@@ -15,6 +15,115 @@ type SimulatedFetchOptions = {
   chunkDelayInMs?: number
 }
 
+/**
+ * Enhanced SSE file structure with front matter and multiple responses
+ */
+export type EnhancedSseFile = {
+  metadata: Record<string, any>
+  responses: string[]
+}
+
+/**
+ * Parses a simple YAML front matter block
+ * Note: This is a basic implementation for common use cases
+ */
+const parseYamlFrontMatter = (yamlContent: string): Record<string, any> => {
+  const result: Record<string, any> = {}
+  const lines = yamlContent.trim().split('\n')
+
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    if (!trimmedLine || trimmedLine.startsWith('#')) continue
+
+    const colonIndex = trimmedLine.indexOf(':')
+    if (colonIndex === -1) continue
+
+    const key = trimmedLine.slice(0, colonIndex).trim()
+    const valueStr = trimmedLine.slice(colonIndex + 1).trim()
+
+    // Parse common YAML values
+    let value: any = valueStr
+    if (valueStr === 'true') value = true
+    else if (valueStr === 'false') value = false
+    else if (valueStr === 'null') value = null
+    else if (/^-?\d+$/.test(valueStr)) value = parseInt(valueStr, 10)
+    else if (/^-?\d*\.\d+$/.test(valueStr)) value = parseFloat(valueStr)
+    else if (valueStr.startsWith('"') && valueStr.endsWith('"')) {
+      value = valueStr.slice(1, -1)
+    } else if (valueStr.startsWith("'") && valueStr.endsWith("'")) {
+      value = valueStr.slice(1, -1)
+    }
+
+    result[key] = value
+  }
+
+  return result
+}
+
+/**
+ * Parses an enhanced SSE file with YAML front matter and multiple responses
+ * Always returns a valid structure, never throws errors
+ */
+export const parseEnhancedSseFile = (fileContent: string): EnhancedSseFile => {
+  const trimmedContent = fileContent.trim()
+
+  // Handle empty content
+  if (!trimmedContent) {
+    return {
+      metadata: {},
+      responses: [''],
+    }
+  }
+
+  // Check if file starts with front matter
+  if (!trimmedContent.startsWith('---')) {
+    // Single SSE format - treat entire content as single response with empty metadata
+    return {
+      metadata: {},
+      responses: [trimmedContent],
+    }
+  }
+
+  // Find the end of front matter
+  const frontMatterEndIndex = trimmedContent.indexOf('\n---\n', 3)
+  if (frontMatterEndIndex === -1) {
+    // Invalid front matter format - treat as single response
+    return {
+      metadata: {},
+      responses: [trimmedContent],
+    }
+  }
+
+  // Extract and parse front matter
+  const frontMatterContent = trimmedContent.slice(3, frontMatterEndIndex)
+  let metadata: Record<string, any> = {}
+  try {
+    metadata = parseYamlFrontMatter(frontMatterContent)
+  } catch {
+    // If YAML parsing fails, use empty metadata
+    metadata = {}
+  }
+
+  // Extract content after front matter
+  const contentAfterFrontMatter = trimmedContent.slice(frontMatterEndIndex + 5).trim()
+
+  // Split content by --- separators for multiple responses
+  const responses = contentAfterFrontMatter
+    .split(/\n---\n/)
+    .map((response) => response.trim())
+    .filter(Boolean)
+
+  // If no responses found, use the entire content after front matter
+  if (responses.length === 0) {
+    return {
+      metadata,
+      responses: [contentAfterFrontMatter || ''],
+    }
+  }
+
+  return { metadata, responses }
+}
+
 export const createSimulatedFetch = (chunks: string[], options: SimulatedFetchOptions = {}): typeof fetch => {
   const simulatedFetch: typeof fetch = async (_input: RequestInfo | URL, _init?: RequestInit) => {
     return new Response(
@@ -66,6 +175,7 @@ export const sseToUIMessage = async (
   options: {
     initialDelayInMs?: number
     chunkDelayInMs?: number
+    startWithReasoning?: boolean
   } = {},
 ): Promise<UIMessage> => {
   const chunks = parseSseLog(sseData)
@@ -94,7 +204,7 @@ export const sseToUIMessage = async (
 
       const wrappedModel = wrapLanguageModel({
         model: baseModel,
-        middleware: createDefaultMiddleware(),
+        middleware: createDefaultMiddleware(options.startWithReasoning ?? false),
       })
 
       const result = streamText({
@@ -173,12 +283,12 @@ export const sseToUIMessage = async (
  */
 export const normalizeUIMessage = (message: any): any => {
   const normalized = JSON.parse(JSON.stringify(message))
-  
+
   // Replace dynamic IDs with stable placeholders
   if (normalized.id) {
     normalized.id = '<DYNAMIC_ID>'
   }
-  
+
   // Normalize tool invocation IDs
   if (normalized.parts) {
     normalized.parts = normalized.parts.map((part: any) => {
@@ -187,14 +297,14 @@ export const normalizeUIMessage = (message: any): any => {
           ...part,
           toolInvocation: {
             ...part.toolInvocation,
-            toolCallId: '<DYNAMIC_TOOL_CALL_ID>'
-          }
+            toolCallId: '<DYNAMIC_TOOL_CALL_ID>',
+          },
         }
       }
       return part
     })
   }
-  
+
   return normalized
 }
 
@@ -203,7 +313,7 @@ export const normalizeUIMessage = (message: any): any => {
  */
 export const normalizeStepResult = (step: any): any => {
   const normalized = JSON.parse(JSON.stringify(step))
-  
+
   // Normalize response properties
   if (normalized.response) {
     if (normalized.response.id) {
@@ -213,6 +323,6 @@ export const normalizeStepResult = (step: any): any => {
       normalized.response.timestamp = '<DYNAMIC_TIMESTAMP>'
     }
   }
-  
+
   return normalized
 }
