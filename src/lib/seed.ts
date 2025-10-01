@@ -37,7 +37,7 @@ export const seedModels = async () => {
         isSystem: 1,
         enabled: 1,
         isConfidential: 1,
-        contextWindow: 256000,
+        contextWindow: 32000,
         toolUsage: 1,
         tokenizer: 'qwen3',
       },
