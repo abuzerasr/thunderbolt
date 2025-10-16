@@ -1,5 +1,5 @@
 import { migrations } from '@/drizzle/_migrations'
-import { DatabaseSingleton } from '@/src/db/singleton'
+import { DatabaseSingleton } from '@/db/singleton'
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { migrate } from './migrate'
@@ -7,7 +7,7 @@ import { migrate } from './migrate'
 describe('Database Migrations', () => {
   beforeEach(async () => {
     // Create a fresh in-memory database for each test
-    await DatabaseSingleton.instance.initialize({ type: 'sqlocal', path: ':memory:' })
+    await DatabaseSingleton.instance.initialize({ type: 'bun-sqlite', path: ':memory:' })
   })
 
   describe('migrate', () => {

@@ -1,8 +1,8 @@
-import { aiFetchStreamingResponse } from '@/src/ai/fetch'
-import { migrate } from '@/src/db/migrate'
-import { DatabaseSingleton } from '@/src/db/singleton'
-import { modelsTable, settingsTable } from '@/src/db/tables'
-import type { ThunderboltUIMessage } from '@/src/types'
+import { aiFetchStreamingResponse } from '@/ai/fetch'
+import { migrate } from '@/db/migrate'
+import { DatabaseSingleton } from '@/db/singleton'
+import { modelsTable, settingsTable } from '@/db/tables'
+import type { ThunderboltUIMessage } from '@/types'
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { v7 as uuidv7 } from 'uuid'
 
@@ -12,8 +12,8 @@ const makeInit = (messages: ThunderboltUIMessage[], chatId: string): RequestInit
 })
 
 beforeAll(async () => {
-  // Use in-memory database for testing
-  await DatabaseSingleton.instance.initialize({ type: 'sqlocal', path: ':memory:' })
+  // Use in-memory Bun SQLite for testing (much faster than sqlocal)
+  await DatabaseSingleton.instance.initialize({ type: 'bun-sqlite', path: ':memory:' })
 
   // Run migrations to create tables
   const db = DatabaseSingleton.instance.db

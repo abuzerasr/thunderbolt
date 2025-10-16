@@ -2,7 +2,7 @@ import { createPrompt } from '@/ai/prompt'
 import { DatabaseSingleton } from '@/db/singleton'
 import { modelsTable } from '@/db/tables'
 import { getCloudUrl } from '@/lib/config'
-import { getBooleanSetting, getSetting } from '@/lib/dal'
+import { getSettings } from '@/dal'
 import { fetch } from '@/lib/fetch'
 import { createToolset, getAvailableTools } from '@/lib/tools'
 import type { Model, SaveMessagesFunction, ThunderboltUIMessage } from '@/types'
@@ -49,10 +49,10 @@ export const createModel = async (modelConfig: Model): Promise<LanguageModelV2> 
   switch (modelConfig.provider) {
     case 'flower': {
       // Check if encryption should be disabled via dev settings
-      const disableEncryption = await getBooleanSetting('disable_flower_encryption', false)
+      const { disableFlowerEncryption } = await getSettings({ disable_flower_encryption: false })
 
       // Enable encryption for confidential models unless explicitly disabled in dev settings
-      const shouldEncrypt = Boolean(modelConfig.isConfidential) && !disableEncryption
+      const shouldEncrypt = Boolean(modelConfig.isConfidential) && !disableFlowerEncryption
 
       const cloudUrl = await getCloudUrl()
       const client = await createConfiguredFlowerClient(cloudUrl)
@@ -134,10 +134,18 @@ export const aiFetchStreamingResponse = async ({
 
   const db = DatabaseSingleton.instance.db
 
-  const locationName = await getSetting<string>('location_name')
-  const locationLat = await getSetting<string>('location_lat')
-  const locationLng = await getSetting<string>('location_lng')
-  const preferredName = await getSetting<string>('preferred_name')
+  // Fetch all settings in a single query (returns camelCase by default)
+  const settings = await getSettings({
+    preferred_name: '',
+    location_name: '',
+    location_lat: '',
+    location_lng: '',
+    distance_unit: 'imperial',
+    temperature_unit: 'f',
+    date_format: 'MM/DD/YYYY',
+    time_format: '12h',
+    currency: 'USD',
+  })
 
   const model = await db.query.modelsTable.findFirst({
     where: eq(modelsTable.id, modelId),
@@ -161,11 +169,18 @@ export const aiFetchStreamingResponse = async ({
   }
 
   const systemPrompt = createPrompt({
-    preferredName: preferredName as string,
+    preferredName: settings.preferredName,
     location: {
-      name: locationName as string,
-      lat: locationLat ? parseFloat(locationLat as string) : undefined,
-      lng: locationLng ? parseFloat(locationLng as string) : undefined,
+      name: settings.locationName,
+      lat: settings.locationLat ? parseFloat(settings.locationLat) : undefined,
+      lng: settings.locationLng ? parseFloat(settings.locationLng) : undefined,
+    },
+    localization: {
+      distanceUnit: settings.distanceUnit,
+      temperatureUnit: settings.temperatureUnit,
+      dateFormat: settings.dateFormat,
+      timeFormat: settings.timeFormat,
+      currency: settings.currency,
     },
   })
 
