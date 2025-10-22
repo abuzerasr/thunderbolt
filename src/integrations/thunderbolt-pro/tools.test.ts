@@ -1,5 +1,5 @@
 import { setupTestDatabase, teardownTestDatabase } from '@/dal/test-utils'
-import type { WeatherForecastData } from '@/lib/weather-forecast'
+import type { WeatherForecastData } from '@/widgets/weather-forecast'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { FetchContentParams, SearchLocationParams, SearchParams, WeatherParams } from './tools'
 import { fetchContent, getCurrentWeather, getWeatherForecast, search, searchLocations } from './tools'
@@ -82,7 +82,17 @@ describe('Thunderbolt Pro Tools', () => {
       }
 
       const mockResponse = {
-        data: 'Search results for artificial intelligence...',
+        data: [
+          {
+            url: 'https://example.com/ai',
+            title: 'AI Article',
+            favicon: 'https://example.com/favicon.ico',
+            image: 'https://example.com/image.jpg',
+            author: 'John Doe',
+            publishedDate: '2024-01-01',
+            id: '1',
+          },
+        ],
         success: true,
       }
 
@@ -90,11 +100,11 @@ describe('Thunderbolt Pro Tools', () => {
 
       const result = await search(params)
 
-      expect(result).toBe('Search results for artificial intelligence...')
+      expect(result).toEqual(mockResponse.data)
       expect(mockPost).toHaveBeenCalledWith(
         'https://example.com/pro/search',
         expect.objectContaining({
-          timeout: 5000,
+          timeout: 10000,
           json: {
             query: 'artificial intelligence',
             max_results: 10,
@@ -110,7 +120,17 @@ describe('Thunderbolt Pro Tools', () => {
       }
 
       const mockResponse = {
-        data: 'Search results...',
+        data: [
+          {
+            url: 'https://example.com/test',
+            title: 'Test',
+            favicon: null,
+            image: null,
+            author: null,
+            publishedDate: null,
+            id: '1',
+          },
+        ],
         success: true,
       }
 
@@ -185,6 +205,7 @@ describe('Thunderbolt Pro Tools', () => {
           url: 'https://example.com/article',
           title: 'Example Article',
           text: 'This is the article content...',
+          summary: 'Article summary',
           favicon: 'https://example.com/favicon.ico',
           image: 'https://example.com/image.jpg',
           author: 'John Doe',
@@ -201,6 +222,7 @@ describe('Thunderbolt Pro Tools', () => {
         url: 'https://example.com/article',
         title: 'Example Article',
         text: 'This is the article content...',
+        summary: 'Article summary',
         favicon: 'https://example.com/favicon.ico',
         image: 'https://example.com/image.jpg',
         author: 'John Doe',
@@ -210,7 +232,7 @@ describe('Thunderbolt Pro Tools', () => {
       expect(mockPost).toHaveBeenCalledWith(
         'https://example.com/pro/fetch-content',
         expect.objectContaining({
-          timeout: 5000,
+          timeout: 10000,
           json: {
             url: 'https://example.com/article',
           },
@@ -228,6 +250,7 @@ describe('Thunderbolt Pro Tools', () => {
           url: 'https://example.com/simple',
           title: null,
           text: 'Simple content',
+          summary: 'Simple summary',
           favicon: null,
           image: null,
           author: null,
@@ -244,6 +267,7 @@ describe('Thunderbolt Pro Tools', () => {
         url: 'https://example.com/simple',
         title: null,
         text: 'Simple content',
+        summary: 'Simple summary',
         favicon: null,
         image: null,
         author: null,
@@ -303,7 +327,7 @@ describe('Thunderbolt Pro Tools', () => {
       expect(mockPost).toHaveBeenCalledWith(
         'https://example.com/pro/weather/current',
         expect.objectContaining({
-          timeout: 5000,
+          timeout: 10000,
           json: {
             location: 'New York',
             region: 'NY',
@@ -373,7 +397,7 @@ describe('Thunderbolt Pro Tools', () => {
       expect(mockPost).toHaveBeenCalledWith(
         'https://example.com/pro/weather/forecast',
         expect.objectContaining({
-          timeout: 5000,
+          timeout: 10000,
           json: {
             location: 'New York',
             region: 'NY',
@@ -495,7 +519,7 @@ describe('Thunderbolt Pro Tools', () => {
       expect(mockPost).toHaveBeenCalledWith(
         'https://example.com/pro/locations/search',
         expect.objectContaining({
-          timeout: 5000,
+          timeout: 10000,
           json: {
             query: 'New York',
             region: 'NY',
@@ -585,14 +609,14 @@ describe('Thunderbolt Pro Tools', () => {
       }
 
       const mockResponse = {
-        data: '',
+        data: [],
         success: true,
       }
 
       mockJson.mockResolvedValue(mockResponse)
 
       const result = await search(params)
-      expect(result).toBe('')
+      expect(result).toEqual([])
     })
 
     it('should handle very large responses', async () => {
@@ -601,7 +625,15 @@ describe('Thunderbolt Pro Tools', () => {
         max_results: 100,
       }
 
-      const largeData = 'x'.repeat(100000)
+      const largeData = Array.from({ length: 100 }, (_, i) => ({
+        url: `https://example.com/${i}`,
+        title: 'Title',
+        favicon: null,
+        image: null,
+        author: null,
+        publishedDate: null,
+        id: `${i}`,
+      }))
       const mockResponse = {
         data: largeData,
         success: true,
@@ -610,7 +642,7 @@ describe('Thunderbolt Pro Tools', () => {
       mockJson.mockResolvedValue(mockResponse)
 
       const result = await search(params)
-      expect(result).toBe(largeData)
+      expect(result).toEqual(largeData)
     })
   })
 })
