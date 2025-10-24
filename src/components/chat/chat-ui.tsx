@@ -77,13 +77,12 @@ export default function ChatUI({
   chatThreadId,
 }: ChatUIProps) {
   const [hasMessages, setHasMessages] = useState(chatHelpers.messages.length > 0)
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false)
   const [input, setInput] = useState('')
   const [showOverflowModal, setShowOverflowModal] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const previousMessageCountRef = useRef(chatHelpers.messages.length)
   const navigate = useNavigate()
-  const isMobile = useIsMobile()
+  const { isMobile, isReady } = useIsMobile()
 
   const selectedModel = models.find((m) => m.id === selectedModelId) || models[0]
 
@@ -137,41 +136,6 @@ export default function ChatUI({
     setHasMessages(currentMessageCount > 0)
   }, [chatHelpers.messages, chatHelpers.status, scrollToBottom, resetUserScroll, userHasScrolled, isAtBottom])
 
-  // Detect keyboard visibility on mobile
-  useEffect(() => {
-    if (!isMobile) return
-
-    let timeout: NodeJS.Timeout
-    const textareaElement = formRef.current?.querySelector('textarea')
-
-    const handleFocus = (e: FocusEvent) => {
-      if (e.target === textareaElement) {
-        setIsKeyboardVisible(true)
-        // Scroll the textarea into view after a small delay
-        timeout = setTimeout(() => {
-          textareaElement?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-        }, 300)
-      }
-    }
-
-    const handleBlur = () => {
-      clearTimeout(timeout)
-      // Delay hiding to prevent flicker
-      setTimeout(() => {
-        setIsKeyboardVisible(false)
-      }, 100)
-    }
-
-    document.addEventListener('focusin', handleFocus)
-    document.addEventListener('focusout', handleBlur)
-
-    return () => {
-      clearTimeout(timeout)
-      document.removeEventListener('focusin', handleFocus)
-      document.removeEventListener('focusout', handleBlur)
-    }
-  }, [isMobile])
-
   const isStreaming = chatHelpers.status === 'streaming'
 
   const handleSubmit = async () => {
@@ -209,28 +173,46 @@ export default function ChatUI({
 
     // Reset user scroll state and scroll to bottom when submitting a new message
     resetUserScroll()
-    setTimeout(() => scrollToBottom(), 100)
+    requestAnimationFrame(() => {
+      scrollToBottom()
+    })
   }
+
+  useEffect(() => {
+    if (!hasMessages) return
+
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        scrollToBottom()
+      })
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [hasMessages])
 
   const handleSelectPrompt = (prompt: string) => {
     setInput(prompt)
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       const textareaElement = formRef.current?.querySelector('textarea')
       if (textareaElement) {
         textareaElement.focus()
       }
-    }, 0)
+    })
   }
 
   const handleNewChat = async () => {
     await navigate('/chats/new')
   }
 
+  if (!isReady) {
+    return null
+  }
+
   return (
     <div
       className={cn(
         'flex flex-col h-full bg-background overflow-hidden w-full max-w-[728px] mx-auto min-w-[300px]',
-        isMobile && isKeyboardVisible && 'pb-0',
+        isMobile && 'pb-0',
       )}
     >
       <AnimatePresence>
@@ -297,13 +279,7 @@ export default function ChatUI({
       </AnimatePresence>
 
       <motion.div
-        className={cn('p-4', isMobile && isKeyboardVisible && 'fixed bottom-0 left-0 right-0 bg-background z-50')}
-        style={{
-          display: 'flex',
-          flex: !hasMessages && !(isMobile && isKeyboardVisible) ? '1' : 'none',
-          alignItems: !hasMessages && !(isMobile && isKeyboardVisible) ? 'center' : 'flex-end',
-          justifyContent: !hasMessages && !(isMobile && isKeyboardVisible) ? 'center' : 'flex-start',
-        }}
+        className={cn('p-4 flex', !hasMessages && 'flex-1 items-center')}
         initial={false}
         layout
         transition={{
@@ -353,7 +329,7 @@ export default function ChatUI({
             />
           </motion.div>
 
-          {!hasMessages && !(isMobile && isKeyboardVisible) && (
+          {!hasMessages && (
             <AnimatePresence>
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
