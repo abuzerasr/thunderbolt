@@ -2,18 +2,17 @@ import {
   filterMessageParts,
   type GroupableUIPart,
   type GroupedUIPart,
-  groupToolParts,
-  type ToolGroupUIPart,
+  groupMessageParts,
+  type ReasoningGroupUIPart,
 } from '@/lib/assistant-message'
 import { splitPartType } from '@/lib/utils'
 import type { ThunderboltUIMessage } from '@/types'
-import type { ReasoningUIPart, TextUIPart, ToolUIPart } from 'ai'
-import { memo, type ReactNode } from 'react'
-import { ReasoningPart } from './reasoning-part'
+import type { TextUIPart } from 'ai'
+import { memo, useEffect, useRef, type ReactNode } from 'react'
 import { SyntheticLoadingPart } from './synthetic-loading-part'
 import { TextPart } from './text-part'
-import { ToolGroup } from './tool-group'
-import { ToolPart } from './tool-part'
+import { ReasoningGroup } from './reasoning-group'
+import { updateMessage } from '@/dal'
 
 interface AssistantMessageProps {
   message: ThunderboltUIMessage
@@ -46,24 +45,18 @@ export const mountMessageParts = (groupedParts: GroupedUIPart[], isStreaming: bo
     const isLastPart = index === groupedParts.length - 1
 
     switch (partType) {
-      case 'reasoning':
-        partElements.push(<ReasoningPart part={part as ReasoningUIPart} />)
-        break
-      case 'group_tools': {
-        const toolGroup = part as ToolGroupUIPart
+      case 'reasoning_group': {
+        const reasoningGroupPart = part as ReasoningGroupUIPart
         partElements.push(
-          <ToolGroup
-            tools={toolGroup.tools}
+          <ReasoningGroup
+            parts={reasoningGroupPart.items}
             isStreaming={isStreaming}
             isLastPartInMessage={isLastPart}
-            hasTextInMessage={hasTextPart}
+            hasTextPart={hasTextPart}
           />,
         )
         break
       }
-      case 'tool':
-        partElements.push(<ToolPart part={part as ToolUIPart} />)
-        break
       case 'text':
         partElements.push(<TextPart part={part as TextUIPart} messageId={messageId} />)
         break
@@ -73,10 +66,77 @@ export const mountMessageParts = (groupedParts: GroupedUIPart[], isStreaming: bo
   return partElements
 }
 
-export const AssistantMessage = memo(({ message, isStreaming }: AssistantMessageProps) => {
-  const filteredParts = filterMessageParts(message.parts) as GroupableUIPart[]
+const useTrackMessagePartDuration = (parts: any[]) => {
+  const partsStartTimes = useRef(new Map<number, number>())
+  const partsEndTimes = useRef(new Map<number, number>())
 
-  const groupedParts = groupToolParts(filteredParts)
+  useEffect(() => {
+    parts.forEach((part, index) => {
+      const isPartStreaming =
+        part.state !== 'done' && part.state !== 'output-available' && part.state !== 'output-error'
+
+      if (isPartStreaming && !partsStartTimes.current.has(index)) {
+        partsStartTimes.current.set(index, Date.now())
+      }
+
+      if (!isPartStreaming && !partsEndTimes.current.has(index)) {
+        partsEndTimes.current.set(index, Date.now())
+      }
+    })
+  }, [parts])
+
+  return parts.map((item, index) => {
+    const startTime = partsStartTimes.current.get(index)
+    const endTime = partsEndTimes.current.get(index)
+    const duration = endTime && startTime ? endTime - startTime : null
+
+    const [partType] = splitPartType(item.type)
+
+    return {
+      ...item,
+      ...(['tool', 'reasoning'].includes(partType) && duration
+        ? {
+            metadata: {
+              ...(item as any).metadata,
+              duration,
+            },
+          }
+        : {}),
+    }
+  })
+}
+
+type UseSaveMessagePartsDurationParams = {
+  isStreaming: boolean
+  message: ThunderboltUIMessage
+  updatedParts: any[]
+}
+
+const useSaveMessagePartsDuration = ({ isStreaming, message, updatedParts }: UseSaveMessagePartsDurationParams) => {
+  const refIsStreaming = useRef(isStreaming)
+
+  useEffect(() => {
+    if (refIsStreaming.current && !isStreaming) {
+      refIsStreaming.current = false
+
+      // delay the update to ensure the parts are updated in the database
+      const timeout = setTimeout(async () => {
+        await updateMessage(message.id, { parts: updatedParts })
+      }, 500)
+
+      return () => clearTimeout(timeout)
+    }
+  }, [isStreaming, message, updatedParts])
+}
+
+export const AssistantMessage = memo(({ message, isStreaming }: AssistantMessageProps) => {
+  const partsWithDuration = useTrackMessagePartDuration(message.parts)
+
+  useSaveMessagePartsDuration({ isStreaming, message, updatedParts: partsWithDuration })
+
+  const filteredParts = filterMessageParts(partsWithDuration) as GroupableUIPart[]
+
+  const groupedParts = groupMessageParts(filteredParts)
 
   const partElements: ReactNode[] = mountMessageParts(groupedParts, isStreaming, message.id)
 
