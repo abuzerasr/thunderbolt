@@ -25,6 +25,7 @@ import { useTriggerScheduler } from './automations/use-trigger-scheduler'
 import { AppErrorScreen } from './components/app-error-screen'
 import NotFound from './components/not-found'
 import { OnboardingDialog } from './components/onboarding/onboarding-dialog'
+import { UpdateNotification } from './components/update-notification'
 import { ContentViewProvider } from './content-view/context'
 import MessageSimulatorPage from './devtools/message-simulator'
 import { useAppInitialization } from './hooks/use-app-initialization'
@@ -49,6 +50,7 @@ function AppContent({ initData }: { initData: InitData }) {
     <BrowserRouter>
       <AppRoutes initData={initData} />
       <OnboardingDialog />
+      <UpdateNotification />
     </BrowserRouter>
   )
 }

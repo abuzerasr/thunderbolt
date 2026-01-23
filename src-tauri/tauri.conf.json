@@ -34,19 +34,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "iOS": {
-      "frameworks": [
-        "MetalPerformanceShaders.framework",
-        "MetalKit.framework",
-        "Metal.framework"
-      ],
+      "frameworks": ["MetalPerformanceShaders.framework", "MetalKit.framework", "Metal.framework"],
       "developmentTeam": "BUMSKVQ3D9"
     },
     "android": {
@@ -57,17 +48,18 @@
     "deep-link": {
       "mobile": [
         {
-          "scheme": [
-            "https"
-          ],
+          "scheme": ["https"],
           "host": "thunderbolt.io",
-          "pathPrefix": [
-            "/oauth/callback",
-            "/auth/verify"
-          ],
+          "pathPrefix": ["/oauth/callback", "/auth/verify"],
           "appLink": true
         }
       ]
+    },
+    "updater": {
+      "endpoints": [
+        "https://cdn.crabnebula.app/update/thunderbird/thunderbolt/{{target}}-{{arch}}/{{current_version}}"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdDN0YxQTRGM0Y1QkZCNEYKUldSUCsxcy9UeHAvZkZHOWVQMzhGaWxFakFhT3JoUUFXUnJUbG9HNWRMYkoxM2NIanZENnlrd3YK"
     }
   }
 }
