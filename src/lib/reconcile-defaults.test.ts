@@ -312,12 +312,15 @@ describe('reconcileDefaultsForTable', () => {
   test('preserves user values set via recomputeHash when code default is null', async () => {
     const db = DatabaseSingleton.instance.db
 
+    // Use a unique test key to avoid conflicts with defaultSettings
+    const testKey = 'test_localization_setting'
+
     // Simulate the recomputeHash scenario:
     // User accepts localization settings (e.g., distance_unit = "metric")
     // Both value AND defaultHash are set to match (this is what recomputeHash does)
     const userSetValue = 'metric'
     const userSetting = {
-      key: 'distance_unit',
+      key: testKey,
       value: userSetValue,
       updatedAt: null,
       defaultHash: null,
@@ -330,13 +333,13 @@ describe('reconcileDefaultsForTable', () => {
     })
 
     // Verify the hash matches (as recomputeHash would set it)
-    const beforeReconcile = await db.select().from(settingsTable).where(eq(settingsTable.key, 'distance_unit')).get()
+    const beforeReconcile = await db.select().from(settingsTable).where(eq(settingsTable.key, testKey)).get()
     expect(beforeReconcile?.value).toBe(userSetValue)
     expect(beforeReconcile?.defaultHash).toBe(hashSetting(userSetting))
 
     // Code default has null value (like localization settings)
     const nullDefault = {
-      key: 'distance_unit',
+      key: testKey,
       value: null,
       updatedAt: null,
       defaultHash: null,
@@ -346,7 +349,7 @@ describe('reconcileDefaultsForTable', () => {
     await reconcileDefaultsForTable(db, settingsTable, [nullDefault], hashSetting, 'key')
 
     // User's value should be PRESERVED, not overwritten with null
-    const afterReconcile = await db.select().from(settingsTable).where(eq(settingsTable.key, 'distance_unit')).get()
+    const afterReconcile = await db.select().from(settingsTable).where(eq(settingsTable.key, testKey)).get()
     expect(afterReconcile?.value).toBe(userSetValue)
     // Hash should remain unchanged
     expect(afterReconcile?.defaultHash).toBe(hashSetting(userSetting))
