@@ -79,7 +79,7 @@ export const startOAuthFlowWebview = async (
   return { tokens, userInfo }
 }
 
-async function waitForCallback(window: WebviewWindow): Promise<{ code: string; state: string } | null> {
+const waitForCallback = async (window: WebviewWindow): Promise<{ code: string; state: string } | null> => {
   return new Promise(async (resolve, reject) => {
     const cleanup = async () => {
       unlistenCallback()
@@ -104,7 +104,9 @@ async function waitForCallback(window: WebviewWindow): Promise<{ code: string; s
 
     const unlistenNavigate = await window.listen('tauri://navigate', (event: any) => {
       const url = new URL(event.payload)
-      if (!url.pathname.includes('oauth-callback.html')) return
+      if (!url.pathname.includes('oauth-callback.html')) {
+        return
+      }
 
       const params = url.searchParams
       handleCallback(params.get('code'), params.get('state'), params.get('error') || params.get('error_description'))
