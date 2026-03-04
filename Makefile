@@ -1,4 +1,4 @@
-.PHONY: help setup install build build-desktop build-android build-ios clean run dev doctor doctor-q docker-up docker-down docker-status
+.PHONY: help setup install build build-desktop build-android build-ios clean run dev doctor doctor-q docker-up docker-down docker-status thunderbot-pull thunderbot-push
 
 # Color definitions
 BLUE := \033[0;34m
@@ -24,6 +24,8 @@ help:
 	@echo "  make docker-up      - Start docker containers (PowerSync, Mongo, etc.)"
 	@echo "  make docker-down    - Stop docker containers"
 	@echo "  make docker-status  - Show docker container status"
+	@echo "  make thunderbot-pull - Pull latest skills from thunderbot"
+	@echo "  make thunderbot-push - Push skill changes back to thunderbot"
 
 # Setup project - install frontend and backend dependencies
 setup:
@@ -152,3 +154,14 @@ docker-down:
 
 docker-status:
 	@bash scripts/docker-status.sh
+
+# Thunderbot skill sync
+thunderbot-pull:
+	@echo "$(BLUE)→ Pulling latest skills from thunderbot...$(NC)"
+	git subtree pull --prefix=.claude/commands thunderbot main --squash
+	@echo "$(GREEN)✓ Skills updated!$(NC)"
+
+thunderbot-push:
+	@echo "$(BLUE)→ Pushing skill changes to thunderbot...$(NC)"
+	git subtree push --prefix=.claude/commands thunderbot main
+	@echo "$(GREEN)✓ Skills pushed!$(NC)"
