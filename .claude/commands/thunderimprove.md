@@ -52,8 +52,9 @@ Run `git diff main...HEAD` (or `git diff --cached` if uncommitted) to see all ch
 ## Output
 
 If issues are found:
-- Fix them directly (edit the files)
-- Report what you changed and why
+- List each issue with a clear description and the specific fix you'd make
+- Do NOT fix anything automatically
+- After presenting all issues, ask the user if they'd like you to proceed with the fixes
 
 If the code looks good:
 - Say so briefly — don't invent problems
