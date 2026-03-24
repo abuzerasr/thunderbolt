@@ -56,8 +56,6 @@ export const OnboardingLocationStep = ({ actions, onFormDirtyChange }: Onboardin
     },
   })
 
-  const isFormDirty = form.formState.isDirty && isInitialized
-
   const handleSelectLocation = async (location: LocationData) => {
     form.setValue('locationName', location.name, { shouldDirty: true })
     form.setValue('locationLat', location.coordinates.lat, { shouldDirty: true })
@@ -89,13 +87,10 @@ export const OnboardingLocationStep = ({ actions, onFormDirtyChange }: Onboardin
       )
       actions.setLocationValue(value.locationName || '')
       actions.setLocationValid(hasValidLocation)
+      onFormDirtyChange?.(form.formState.isDirty)
     })
     return () => subscription.unsubscribe()
-  }, [form, actions, isInitialized])
-
-  useEffect(() => {
-    onFormDirtyChange?.(isFormDirty)
-  }, [isFormDirty, onFormDirtyChange])
+  }, [form, actions, isInitialized, onFormDirtyChange])
 
   useEffect(() => {
     form.reset(form.getValues())

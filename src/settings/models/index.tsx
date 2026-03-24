@@ -198,22 +198,6 @@ export default function ModelsPage() {
     modelLoadError,
   } = state
 
-  // Ensure form state (including validation errors) resets whenever the dialog closes
-  useEffect(() => {
-    if (!isAddDialogOpen) {
-      form.reset({
-        provider: 'thunderbolt',
-        name: '',
-        model: '',
-        customModel: '',
-        url: '',
-        apiKey: '',
-        toolUsage: true,
-      })
-      form.clearErrors()
-    }
-  }, [isAddDialogOpen])
-
   const { data: models = [] } = useQuery({
     queryKey: ['models'],
     query: toCompilableQuery(getAllModels(db)),
@@ -280,13 +264,6 @@ export default function ModelsPage() {
       toolUsage: true,
     },
   })
-
-  // Load Thunderbolt models when dialog opens
-  useEffect(() => {
-    if (isAddDialogOpen && form.getValues('provider') === 'thunderbolt' && allAvailableModels.length === 0) {
-      fetchAvailableModels('thunderbolt')
-    }
-  }, [isAddDialogOpen])
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     // Use customModel if it's a custom selection, otherwise use model
@@ -371,11 +348,15 @@ export default function ModelsPage() {
   const handleDialogOpenChange = (open: boolean) => {
     if (open) {
       dispatch({ type: 'OPEN_DIALOG' })
-      fetchAvailableModels('thunderbolt')
+
+      if (form.getValues('provider') === 'thunderbolt' && allAvailableModels.length === 0) {
+        fetchAvailableModels('thunderbolt')
+      }
     } else {
+      form.reset()
+      form.clearErrors()
       dispatch({ type: 'CLOSE_DIALOG' })
     }
-    // The useEffect on isAddDialogOpen handles form reset for both open/close
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -958,7 +939,7 @@ export default function ModelsPage() {
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="ghost" onClick={() => handleDialogOpenChange(false)}>
+                  <Button type="button" variant="ghost" onClick={() => handleDialogOpenChange(false)}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={addModelMutation.isPending}>
