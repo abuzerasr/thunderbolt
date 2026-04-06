@@ -282,12 +282,14 @@ jobs:
       - name: Find AAB file
         id: find_aab
         run: |
-          AAB_PATH=$(find src-tauri/gen/android -name "*.aab" -type f | head -1)
+          AAB_PATH=$(find src-tauri/gen/android/app/build/outputs -name "*.aab" -type f | head -1)
           if [ -f "$AAB_PATH" ]; then
             echo "📱 Found AAB file: $AAB_PATH"
             echo "aab_path=$AAB_PATH" >> $GITHUB_OUTPUT
           else
-            echo "❌ No AAB file found in Android build directory"
+            echo "❌ No AAB file found in Android build outputs directory"
+            echo "Available AAB files:"
+            find src-tauri/gen/android -name "*.aab" -type f
             exit 1
           fi
 
