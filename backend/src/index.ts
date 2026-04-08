@@ -8,6 +8,7 @@ import { runMigrations } from '@/db/client'
 import { createInferenceRoutes } from '@/inference/routes'
 import { createErrorHandlingMiddleware } from '@/middleware/error-handling'
 import { createHttpLoggingMiddleware } from '@/middleware/http-logging'
+import { createInferenceRateLimit, createProRateLimit } from '@/middleware/rate-limit'
 import { createMcpProxyRoutes } from '@/mcp-proxy/routes'
 import { createPostHogRoutes } from '@/posthog/routes'
 import { createProToolsRoutes } from '@/pro/routes'
@@ -59,6 +60,8 @@ export const createApp = async (deps?: AppDeps) => {
   const { plugin: betterAuthPlugin, auth: createdAuth } = createBetterAuthPlugin(database)
   const auth = deps?.auth ?? createdAuth
 
+  const rateLimitSettings = { enabled: settings.rateLimitEnabled }
+
   return (
     configuredApp
       .use(
@@ -71,16 +74,16 @@ export const createApp = async (deps?: AppDeps) => {
         }),
       )
       .use(createLoggerMiddleware(settings))
-      .use(createHttpLoggingMiddleware())
+      .use(createHttpLoggingMiddleware(settings.trustedProxy))
       .use(createErrorHandlingMiddleware())
-      // Better Auth handler (mounted at /api/auth/*)
+      // Auth routes (mounted at /api/auth/*)
       .use(betterAuthPlugin)
       // Mount route groups
       .use(createMainRoutes(auth, fetchFn))
       .use(createGoogleAuthRoutes(auth, fetchFn))
       .use(createMicrosoftAuthRoutes(auth, fetchFn))
-      .use(createProToolsRoutes(auth, fetchFn))
-      .use(createInferenceRoutes(auth))
+      .use(createProToolsRoutes(auth, fetchFn, createProRateLimit(database, rateLimitSettings)))
+      .use(createInferenceRoutes(auth, createInferenceRateLimit(database, rateLimitSettings)))
       .use(createPostHogRoutes(fetchFn))
       .use(createMcpProxyRoutes(auth, fetchFn))
       .use(createWaitlistRoutes({ database, auth, emailService: deps?.waitlistEmailService }))

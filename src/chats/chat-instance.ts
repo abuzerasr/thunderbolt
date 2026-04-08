@@ -1,4 +1,5 @@
 import { aiFetchStreamingResponse } from '@/ai/fetch'
+import { isRateLimitError } from '@/lib/error-utils'
 import type { HttpClient } from '@/lib/http'
 import { trackEvent } from '@/lib/posthog'
 import type { SaveMessagesFunction, ThunderboltUIMessage } from '@/types'
@@ -52,6 +53,7 @@ export const createChatInstance = (
 
   let retryCount = 0
   let retryTimeout: ReturnType<typeof setTimeout> | null = null
+  let lastError: Error | null = null
 
   const instance = new Chat<ThunderboltUIMessage>({
     id,
@@ -68,6 +70,7 @@ export const createChatInstance = (
           retryTimeout = null
         }
         retryCount = 0
+        lastError = null
         useChatStore.getState().updateSession(id, { retryCount: 0, retriesExhausted: false })
         return
       }
@@ -75,6 +78,7 @@ export const createChatInstance = (
       // Handle successful responses: message exists, no error, and has parts
       if (!isError && message && message.parts?.length) {
         retryCount = 0
+        lastError = null
         useChatStore.getState().updateSession(id, { retryCount: 0, retriesExhausted: false })
 
         const { sessions } = useChatStore.getState()
@@ -93,6 +97,13 @@ export const createChatInstance = (
           reply_number: instance.messages.length + 1,
         })
 
+        return
+      }
+
+      // Don't auto-retry rate limit errors — retrying immediately makes it worse
+      if (isRateLimitError(lastError)) {
+        lastError = null
+        useChatStore.getState().updateSession(id, { retriesExhausted: true })
         return
       }
 
@@ -134,6 +145,7 @@ export const createChatInstance = (
     // stays at 0, so the UI shows the Retry button immediately.
     onError: (error) => {
       console.error('Chat error:', error)
+      lastError = error instanceof Error ? error : new Error(String(error))
     },
   })
 
@@ -146,6 +158,7 @@ export const createChatInstance = (
       retryTimeout = null
     }
     retryCount = 0
+    lastError = null
     useChatStore.getState().updateSession(id, { retryCount: 0, retriesExhausted: false })
     return originalRegenerate()
   }
@@ -160,6 +173,7 @@ export const createChatInstance = (
       retryTimeout = null
     }
     retryCount = 0
+    lastError = null
     useChatStore.getState().updateSession(id, { retryCount: 0, retriesExhausted: false })
 
     const { sessions } = useChatStore.getState()

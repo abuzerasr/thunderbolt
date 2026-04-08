@@ -62,7 +62,17 @@ const settingsSchema = z.object({
     .default(
       'Content-Type,Authorization,Accept,Accept-Encoding,Accept-Language,Cache-Control,User-Agent,X-Requested-With,X-Client-Platform,X-Device-ID,X-Device-Name,X-Mcp-Target-Url,Mcp-Session-Id,Mcp-Protocol-Version',
     ),
-  corsExposeHeaders: z.string().default('mcp-session-id,set-auth-token'),
+  corsExposeHeaders: z
+    .string()
+    .default('mcp-session-id,set-auth-token,ratelimit-limit,ratelimit-remaining,ratelimit-reset,retry-after'),
+
+  // Rate limiting
+  rateLimitEnabled: z.boolean().default(true),
+
+  // Trusted proxy (controls which proxy headers are trusted for IP extraction)
+  // Set to 'cloudflare' to trust CF-Connecting-IP, 'akamai' for True-Client-IP,
+  // or leave empty to use only the direct socket IP (proxy headers are NOT trusted)
+  trustedProxy: z.enum(['', 'cloudflare', 'akamai']).default(''),
 })
 
 export type Settings = z.infer<typeof settingsSchema>
@@ -107,7 +117,11 @@ const parseSettings = (): Settings => {
     corsAllowHeaders:
       process.env.CORS_ALLOW_HEADERS ||
       'Content-Type,Authorization,Accept,Accept-Encoding,Accept-Language,Cache-Control,User-Agent,X-Requested-With,X-Client-Platform,X-Device-ID,X-Device-Name,X-Mcp-Target-Url,Mcp-Session-Id,Mcp-Protocol-Version',
-    corsExposeHeaders: process.env.CORS_EXPOSE_HEADERS || 'mcp-session-id,set-auth-token',
+    corsExposeHeaders:
+      process.env.CORS_EXPOSE_HEADERS ||
+      'mcp-session-id,set-auth-token,ratelimit-limit,ratelimit-remaining,ratelimit-reset,retry-after',
+    rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== 'false',
+    trustedProxy: (process.env.TRUSTED_PROXY || '').toLowerCase(),
   }
 
   return settingsSchema.parse(env)

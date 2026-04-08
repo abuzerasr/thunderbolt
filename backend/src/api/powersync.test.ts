@@ -42,6 +42,8 @@ const powersyncSettings: Settings = {
   oidcClientSecret: '',
   oidcIssuer: '',
   betterAuthUrl: 'http://localhost:8000',
+  rateLimitEnabled: false,
+  trustedProxy: '',
 }
 
 describe('PowerSync API', () => {

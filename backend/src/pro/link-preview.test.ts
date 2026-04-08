@@ -67,6 +67,8 @@ describe('Link Preview Routes', () => {
       oidcClientSecret: '',
       oidcIssuer: '',
       betterAuthUrl: 'http://localhost:8000',
+      rateLimitEnabled: false,
+      trustedProxy: '',
     })
 
     // Create mock fetch
