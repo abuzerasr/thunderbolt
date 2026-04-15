@@ -12,12 +12,12 @@
 | Feature | Status |
 | --- | --- |
 | ACP | In Development - Release Planned: April 2026 |
-| MCP Support | ✅ |
+| MCP Support | Preview |
 | OIDC | ✅ |
 | Chat Widgets | ✅ |
 | Chat Mode | ✅ |
 | Search Mode | ✅ |
-| Research Mode | ✅ |
+| Research Mode | Preview |
 | Custom Models / Providers | ✅ |
 | Optional End-to-End Encryption | Preview |
 | Cross-Device Cloud Sync | Preview |
@@ -27,5 +27,4 @@
 | Agent Memory | Planned |
 | Agent Skills | Planned |
 | Offline Support | Planned |
-| Research Mode v2 | Planned |
 | Tasks | Preview |
