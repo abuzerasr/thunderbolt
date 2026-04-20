@@ -77,6 +77,8 @@ services:
     command: --replSet rs0 --bind_ip_all --quiet
     volumes:
       - mongo_data:/data/db
+    networks:
+      - dokploy-network
 
   mongo-rs-init:
     image: mongo:7.0
@@ -87,6 +89,8 @@ services:
       - bash
       - -c
       - 'mongosh --host mongo:27017 --eval ''try{rs.status().ok&&quit(0)}catch{}rs.initiate({_id:"rs0",version:1,members:[{_id:0,host:"mongo:27017"}]})'''
+    networks:
+      - dokploy-network
 
   powersync:
     image: journeyapps/powersync-service:latest
