@@ -10,7 +10,10 @@ services:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
+    networks:
+      - dokploy-network
 
+      
   backend:
     build:
       context: ../
@@ -45,6 +48,10 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - dokploy-network
+
+
 
   postgres:
     image: postgres:18-alpine
@@ -63,6 +70,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    
 
   mongo:
     image: mongo:7.0
@@ -113,7 +121,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
+    networks:
+      - dokploy-network
 
 volumes:
   pg_data:
   mongo_data:
+  
+networks:
+  dokploy-network:
+    external: true
