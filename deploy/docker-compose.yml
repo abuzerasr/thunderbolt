@@ -82,13 +82,13 @@ services:
     command: --replSet rs0 --bind_ip_all --quiet
     volumes:
       - mongo_data:/data/db
-    container_name: thunderbold-mongo
+    container_name: thunderbolt-mongo
     networks:
       - dokploy-network
 
   mongo-rs-init:
     image: mongo:7.0
-    container_name: thunderbold-mongors
+    container_name: thunderbolt-mongors
     depends_on:
       - mongo
     restart: on-failure
@@ -101,7 +101,7 @@ services:
 
   powersync:
     image: journeyapps/powersync-service:latest
-    container_name: thunderbold-powersynch
+    container_name: thunderbolt-powersynch
     command: ["start", "-r", "unified"]
     environment:
       POWERSYNC_CONFIG_PATH: /config/config.yaml
@@ -118,7 +118,7 @@ services:
       - dokploy-network
 
   keycloak:
-    container_name: thunderbold-keycloak
+    container_name: thunderbolt-keycloak
     image: quay.io/keycloak/keycloak:26.0
     command: start-dev --import-realm
     environment:
