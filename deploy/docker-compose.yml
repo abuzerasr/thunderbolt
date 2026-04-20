@@ -34,11 +34,11 @@ services:
       OIDC_ISSUER: http://keycloak:8080/realms/thunderbolt
       OIDC_CLIENT_ID: thunderbolt-app
       OIDC_CLIENT_SECRET: thunderbolt-enterprise-secret
-      BETTER_AUTH_URL: https://thunder.asrai.me:${FRONTEND_PORT:-3000}
+      BETTER_AUTH_URL: https://thunder.asrai.me
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      APP_URL: https://thunder.asrai.me:${FRONTEND_PORT:-3000}
-      TRUSTED_ORIGINS: https://thunder.asrai.me:${FRONTEND_PORT:-3000}
-      CORS_ORIGINS: https://thunder.asrai.me:${FRONTEND_PORT:-3000}
+      APP_URL: https://thunder.asrai.me
+      TRUSTED_ORIGINS: https://thunder.asrai.me
+      CORS_ORIGINS: https://thunder.asrai.me
       POWERSYNC_URL: http://powersync:8080
       POWERSYNC_JWT_SECRET: enterprise-powersync-secret-key1
       POWERSYNC_JWT_KID: enterprise-powersync
@@ -125,7 +125,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_HTTP_PORT: "8080"
-      KC_HOSTNAME: https://keycloak.asrai.me:${KEYCLOAK_PORT:-8180}
+      KC_HOSTNAME: https://keycloak.asrai.me
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     volumes:
       - ./config/keycloak-realm.json:/opt/keycloak/data/import/thunderbolt-realm.json
