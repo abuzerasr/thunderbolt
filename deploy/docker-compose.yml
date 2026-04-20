@@ -70,6 +70,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - dokploy-network
     
 
   mongo:
@@ -106,6 +108,8 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+    networks:
+      - dokploy-network
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
